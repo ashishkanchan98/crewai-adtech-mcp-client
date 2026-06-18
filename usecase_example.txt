@@ -1,0 +1,505 @@
+ Single Agent vs Multi-Agent
+  
+  Single agent (LangGraph version): One LLM loop calls all tools itself, writes one answer.
+
+  Multi-agent (CrewAI version): Multiple independent LLM instances, each with a specific role, tools, and goal. They hand work to each other.
+
+  ---
+ 
+All 7 Use Cases — Concrete Multi-Agent Flow
+                                                                                                                                                                                            
+  ---
+  Use Case 1 — Campaign Not Delivering
+  
+  Trigger: "Campaign CMP-4491 has zero impressions for 6 hours"
+
+  User Query
+      │
+      ▼
+  Agent 1 — Triage Specialist
+    Tools:  searchKnowledgeBase
+    Action: Searches KB → finds "delivery checklist doc-001"
+    Output: "Domain: budget/bid issue. KB: check pacing mode and bid vs floor."
+      │
+      ├──────────────────────────────────────────┐
+      ▼                                          ▼
+  Agent 2 — Campaign Analyst          Agent 3 — Audience & Creative
+    Tools: getCampaignStatus            Tools: getSegmentStatus
+           getPacingSettings                   getSegmentUploadLog
+           getHourlySpendCurve                 getCreativeStatus
+    Finds: status=PAUSED               Finds: SEG-9012 size=0
+           bid=$0.95 < floor=$1.20            upload error row 44: bad email format
+           budget hit at 08:03am              CRE-771 = APPROVED
+           pacingMode=ASAP                    CRE-772 = DISAPPROVED (policy: alcohol)
+    Output: "2 issues: bid below        Output: "2 issues: segment empty,
+             floor, ASAP pacing"                creative disapproved"
+      │                                          │
+      └──────────────┬───────────────────────────┘
+                     ▼
+      Agent 4 — Deal & Inventory
+        Tools: getDealStatus, getDealBidStream, getSeatMapping
+        Finds: Open auction campaign — no deal attached
+        Output: "N/A — open auction, skip deal check"
+                     │
+                     ▼
+  Agent 1 — Triage Specialist (synthesis)
+    Context: All 3 agent outputs above
+    Output:
+      ┌─────────────────────────────────────────────────┐
+      │ PRIORITY 1: Creative CRE-772 disapproved        │
+      │   → Remove alcohol imagery, resubmit            │
+      │ PRIORITY 2: Bid $0.95 below floor $1.20         │
+      │   → Raise CPM bid to ≥ $1.30                   │
+      │ PRIORITY 3: Segment SEG-9012 empty              │
+      │   → Fix CSV row 44 format, re-upload            │
+      │ PRIORITY 4: Change pacing ASAP → EVEN           │
+      └─────────────────────────────────────────────────┘
+
+  ---
+  Use Case 2 — Reporting Discrepancy
+  
+  Trigger: "DSP shows 120K impressions, GAM shows 84K — 30% gap"
+
+  User Query
+      │
+      ▼
+  Agent 1 — Triage Specialist
+    Tools:  searchKnowledgeBase
+    Action: Searches "DSP GAM discrepancy runbook"
+    Output: "KB: 30%+ gaps usually caused by IVT filtering or brand safety blocking"
+      │
+      ▼
+  Agent 7 — Reporting & Discrepancy
+    Tools: getDSPImpressionReport → 120,441 impressions
+           getGAMReport          → 84,309 impressions
+           getDiscrepancyLog     → historical: avg gap 8%, today 30% — anomaly
+    Output: "Gap = 36,132 impressions (30%). Historical avg 8% — spike today.
+             DSP counts before IVT filter. GAM counts after."
+      │
+      ├─────────────────────────────────────────┐
+      ▼                                         ▼
+  Agent 6 — Fraud & Brand Safety       Agent 6 — (second task, same agent)
+    Tools: getIVTReport                  Tools: getBrandSafetySettings
+           getClickLog                          getPlacementReport
+    Finds: IVT rate = 22%               Finds: Brand safety Tier 3
+           SIVT: 14% (bot traffic)              IAS blocking 127 domains
+           GIVT: 8%  (data center)              Blocked impressions: ~4,100
+    Output: "IVT filtering accounts       Output: "Brand safety blocking
+             for ~26,500 impressions               accounts for ~4,100
+             (22% of DSP total)"                   impressions (3.4%)"
+      │                                         │
+      └──────────────┬──────────────────────────┘
+                     ▼
+  Agent 7 — Reporting & Discrepancy (reconciliation)
+    Context: All findings above
+    Output:
+      ┌──────────────────────────────────────────────────────┐
+      │ GAP RECONCILIATION                                   │
+      │ Total gap: 36,132 impressions (30%)                  │
+      │                                                      │
+      │ Cause 1: IVT filtering     → 26,500 imp  (22.0%)    │
+      │ Cause 2: Brand safety      →  4,100 imp  ( 3.4%)    │
+      │ Cause 3: Reporting latency →  5,532 imp  ( 4.6%)    │
+      │ ─────────────────────────────────────────────────    │
+      │ Explained gap:             → 36,132 imp  (30.0%) ✓  │
+      │                                                      │
+      │ DSP count (120K) is technically correct.             │
+      │ GAM count (84K) reflects filtered/verified traffic.  │
+      │ RECOMMENDATION: Use GAM as source of truth.          │
+      └──────────────────────────────────────────────────────┘
+
+  ---
+  Use Case 3 — IVT / Fraud Spike
+  
+  Trigger: "IVT rate jumped from 3% to 18% on ADV-789 overnight"
+
+  User Query
+      │
+      ▼
+  Agent 6 — Fraud & Brand Safety (lead investigator)
+    Tools: getClickLog(campaignId, hours=48)
+           getIVTReport(campaignId, vendor="IAS")
+    Finds: IVT rate: 3% yesterday → 18% today
+           Click log: 847 clicks from 3 IPs (192.168.x.x range)
+           Same user-agent string repeated 1,200 times
+           SIVT: 15% (datacenter bot), GIVT: 3%
+    Output: "Coordinated bot attack detected. 3 IPs responsible for 15% SIVT.
+             Spike began at 02:14am — correlates with 3rd-party network activation."
+      │
+      ├───────────────────────────────┬───────────────────────────────┐
+      ▼                               ▼                               ▼
+  Agent 6 — (placement task)    Agent 6 — (brand safety task)  Agent 2 — Campaign Analyst
+    Tools: getPlacementReport     Tools: getBrandSafetySettings    Tools: getCampaignStatus
+    Finds: 3 domains spike:       Finds: Tier 3 brand safety               getHourlySpendCurve
+      cheapnews.io     IVT=41%           IAS active ✓             Finds: Still ACTIVE
+      freevideos.net   IVT=38%           Blocklist last            Wasted spend: $2,840
+      clickbait.xyz    IVT=29%           updated: 47 days ago      Wasted this hour: $310
+    Output: "3 domains responsible  Output: "Blocklist stale.      Output: "Campaigns running.
+             for 78% of fraud.               Add 3 domains to               $2,840 already
+             Add to blocklist NOW"           blocklist immediately"         wasted on bot traffic"
+      │                               │                               │
+      └───────────────────────────────┴───────────────────────────────┘
+                                      │
+                                      ▼
+  Agent 1 — Triage Specialist (escalation decision)
+    Context: All 4 agent outputs
+    Output:
+      ┌──────────────────────────────────────────────────────────────┐
+      │ ESCALATION DECISION: ⛔ PAUSE_NOW                           │
+      │                                                              │
+      │ Reason: IVT > 15% threshold + $2,840 wasted spend           │
+      │                                                              │
+      │ IMMEDIATE ACTIONS (do now):                                  │
+      │  1. PAUSE campaigns: CMP-9901, CMP-9902, CMP-9903           │
+      │  2. Add to blocklist: cheapnews.io, freevideos.net,          │
+      │                        clickbait.xyz                         │
+      │  3. Block IPs: 192.168.44.x range in DSP settings           │
+      │                                                              │
+      │ BEFORE RESUMING:                                             │
+      │  4. Update IAS blocklist (currently 47 days stale)           │
+      │  5. Enable enhanced bot filtering on all line items          │
+      │  6. Request IVT credit from publisher: ~$2,840               │
+      └──────────────────────────────────────────────────────────────┘
+
+  ---
+  Use Case 4 — PMP Deal Zero Bids
+  
+  Trigger: "Deal DEAL-9921 has been live 48 hours with 0 bid requests"
+
+  User Query
+      │
+      ▼
+  Agent 5 — Deal & Inventory (lead)
+    Tools: getDealStatus(dealId)
+           getDealBidStream(dealId, hours=6)
+           getSeatMapping(dealId)
+    Finds: dealStatus = PENDING_SYNC (not fully synced!)
+           bidRequests last 6h = 0
+           Deal seat ID:      "seat-buyer-442"
+           DSP registered ID: "seat-442-buyer"   ← MISMATCH
+    Output: "Deal not synced. Seat ID format mismatch:
+             deal has 'seat-buyer-442', DSP registered 'seat-442-buyer'"
+      │
+      ├──────────────────────────────────────┐
+      ▼                                      ▼
+  Agent 2 — Campaign Analyst          Agent 1 — Triage Specialist
+    Tools: getCampaignStatus            Tools: searchKnowledgeBase
+           getPacingSettings            Search: "PMP zero bids troubleshooting"
+    Finds: CMP-5512 = ACTIVE            Finds: KB doc-008:
+           Budget remaining: $8,200       "Seat ID must match exactly —
+           Targeting: DEAL-9921 ✓         case-sensitive, hyphen-sensitive"
+           Bid: $4.50 (above floor)
+    Output: "Campaign correctly          Output: "KB confirms: seat ID format
+             targeting deal. Budget,               mismatch is #1 cause of
+             bid OK. Problem is the                zero bid requests on PMP deals"
+             deal sync, not campaign"
+      │                                      │
+      └──────────────┬───────────────────────┘
+                     ▼
+  Agent 5 — Deal & Inventory (fix checklist)
+    Context: All findings
+    Output:
+      ┌────────────────────────────────────────────────────────────┐
+      │ PMP ZERO-BID FIX CHECKLIST                                │
+      │                                                            │
+      │ ROOT CAUSE: Seat ID mismatch + deal not synced             │
+      │                                                            │
+      │ Step 1 (NOW): Fix seat ID in DSP from                      │
+      │               "seat-buyer-442" → "seat-442-buyer"          │
+      │ Step 2 (NOW): Re-trigger deal sync in DSP deal manager     │
+      │ Step 3 (15m): Confirm deal status changes to ACTIVE        │
+      │ Step 4 (30m): Verify bid stream shows > 0 requests         │
+      │ Step 5 (2h):  Check bid win rate > 0%                      │
+      │                                                            │
+      │ Expected time to first bid request: ~15-30 min after fix   │
+      └────────────────────────────────────────────────────────────┘
+
+  ---
+  Use Case 5 — Pixel & Conversion Attribution Drop
+  
+  Trigger: "Conversions dropped 75% after iOS 17 update. Pixel fires but no attribution"
+
+  User Query
+      │
+      ▼
+  Agent 4 — Pixel & Attribution (lead)
+    Tools: getPixelFireLog(pixelId, hours=24)
+           getAttributionWindowSettings(campaignId)
+    Finds: Pixel fires: 4,821 events (firing normally ✓)
+           Click-through window: 30 days
+           View-through window: 1 day
+           No server-side tag configured
+    Output: "Pixel firing correctly (4,821 fires). Attribution windows configured.
+             No server-side tag. Problem is downstream — cookie matching."
+      │
+      ├────────────────────────────────────────────┐
+      ▼                                            ▼
+  Agent 4 — (match rate task)           Agent 2 — Campaign Analyst
+    Tools: getConversionMatchRate          Tools: getCampaignStatus
+    Finds: Overall match rate: 21%                getAttributionWindowSettings
+           Chrome:  68% match ✓           Finds: view-through conversions = OFF
+           Safari:  8%  match ✗ (ITP)             campaign targeting: 60% iOS
+           iOS App: 4%  match ✗ (ATT)             last 7 days: iOS users = 71%
+           Firefox: 54% match ✓                   of total traffic
+    Output: "Match rate 21% — critically         Output: "View-through conversions
+             low. Safari/iOS ITP dropped           disabled. 71% iOS audience
+             match rate from ~65% to 21%           means ITP impacts majority
+             after iOS 17 intelligent              of conversions"
+             tracking prevention"
+      │                                            │
+      ├────────────────────────────────────────────┘
+      ▼
+  Agent 1 — Triage Specialist
+    Tools: searchKnowledgeBase
+    Search: "ITP pixel attribution iOS 17 server-side"
+    Finds: KB doc-015: "Server-side tagging bypasses ITP.
+                         First-party cookies persist across sessions."
+      │
+      ▼
+  Agent 4 — Pixel & Attribution (mitigation plan)
+    Context: All findings above
+    Output:
+      ┌──────────────────────────────────────────────────────────────┐
+      │ CONVERSION ATTRIBUTION MITIGATION PLAN                      │
+      │                                                              │
+      │ ROOT CAUSE: iOS ITP reducing match rate from 65% → 21%      │
+      │ IMPACT: ~75% conversions unattributed (not lost, uncounted)  │
+      │                                                              │
+      │ IMMEDIATE (today):                                           │
+      │  1. Enable view-through conversions → recover ~15%          │
+      │  2. Shorten click-through window to 7 days (ITP resets)     │
+      │     Expected recovery: +18% attributed conversions          │
+      │                                                              │
+      │ SHORT-TERM (1-2 weeks):                                      │
+      │  3. Implement server-side tagging via GTM Server             │
+      │     Expected recovery: +35% on Safari/iOS                   │
+      │                                                              │
+      │ STRATEGIC (1-2 months):                                      │
+      │  4. First-party data integration (hashed email matching)     │
+      │  5. Integrate with Apple's SKAdNetwork for iOS attribution   │
+      │     Full recovery potential: 85-90% of pre-iOS17 baseline   │
+      └──────────────────────────────────────────────────────────────┘
+
+  ---
+  Use Case 6 — Pre-Launch Audit (All 6 Agents in Parallel)
+  
+  Trigger: "Audit campaign CMP-5500 before it goes live tomorrow"
+
+  User Query
+      │
+      ▼ (all 6 fire simultaneously — async_execution=True)
+      │
+      ├──────────┬──────────┬──────────┬──────────┬──────────┐
+      ▼          ▼          ▼          ▼          ▼          ▼
+
+  Agent 2        Agent 3       Agent 4       Agent 5       Agent 6       Agent 1
+  Campaign       Audience      Pixel &       Deal &        Fraud &       Triage
+  Analyst        & Creative    Attribution   Inventory     Brand Safety  (KB search)
+
+  getCampaign    getSegment    getPixel      getDealStatus getBrandSafety searchKB
+  getPacing      getCreative   getAttrib     getBidStream  getPlacement  "checklist"
+  getHourly      getUpload     getMatchRate  getSeatMap
+
+  status=ACTIVE  seg size=0    pixel=firing  deal=ACTIVE   tier=3 ✓      KB: must have
+  bid=$2.10 ✓   upload ERR    matchRate=22% seat match ✓  IAS active ✓  segment>1000
+  floor=$1.80 ✓  CRE: APPR ✓  (ITP risk)   bidStream=47  blocklist OK  before launch
+  budget=$5k ✓  CRE: DISAP ✗                              last upd=3d
+
+  ✅ Campaign     ❌ Segment    ⚠️  Pixel       ✅ Deal        ✅ Brand       KB: check
+     ACTIVE,         empty,       fires but       synced,       Safety       segment
+     bid OK          re-upload    match 22%       seat OK       OK           size first
+
+      └──────────┴──────────┴──────────┴──────────┴──────────┘
+                                      │
+                                      ▼  (~15s total — all parallel)
+                Agent 1 — Triage Specialist (GO/NO-GO synthesis)
+                Context: All 6 audit outputs
+                Output:
+      ┌──────────────────────────────────────────────────────────────┐
+      │ PRE-LAUNCH AUDIT REPORT — CMP-5500                          │
+      │                                                              │
+      │ ✅ Campaign:    ACTIVE, budget $5,000, bid $2.10 > floor $1.80│
+      │ ❌ Segment:     SEG-2211 size = 0 — upload failed row 12     │
+      │ ❌ Creative:    CRE-772 DISAPPROVED — policy violation        │
+      │ ⚠️   Pixel:       firing but match rate 22% (ITP risk on iOS)  │
+      │ ✅ Deal:        DEAL-4401 synced, seat ID match confirmed      │
+      │ ✅ Brand Safety: Tier 3, IAS active, blocklists current        │
+      │                                                              │
+      │ ─────────────────────────────────────────────────────────── │
+      │ VERDICT: ❌ NO-GO                                            │
+      │                                                              │
+      │ Fix before launch:                                           │
+      │  1. Re-upload SEG-2211 (fix row 12 format error)            │
+      │  2. Replace CRE-772 with policy-compliant creative           │
+      │ Optional before launch:                                      │
+      │  3. Implement server-side tag to improve iOS match rate      │
+      └──────────────────────────────────────────────────────────────┘
+
+  ---
+  Use Case 7 — Budget Pacing Optimization
+  
+  Trigger: "Campaign burns 80% of daily budget by 10am every day"
+
+  User Query
+      │
+      ▼
+  Agent 2 — Campaign Analyst (lead)
+    Tools: getHourlySpendCurve(campaignId, days=3)
+           getPacingSettings(campaignId)
+           getCampaignFrequencySettings(campaignId)
+    Finds: Day 1: $4,000 spent by 10:12am (80%), $0 by 11am
+           Day 2: $4,000 spent by 09:58am (80%), $0 by 10:30am
+           Day 3: $4,000 spent by 10:03am (80%), $0 by 10:45am
+           pacingMode = ASAP  ← root cause
+           frequencyCap = NONE (no cap set!)
+           bid = $3.80 (high — winning every auction)
+    Output: "ASAP pacing + no frequency cap = front-loaded spend.
+             Campaign wins every available impression 6am-10am,
+             exhausts $5k budget, goes dark for remaining 14 hours."
+      │
+      ├───────────────────────────────────────────────────┐
+      ▼                                                   ▼
+  Agent 3 — Audience & Creative                Agent 2 — (performance task)
+    Tools: getSegmentStatus                      Tools: getPerformanceMetrics
+    Finds: SEG-3301 size = 142,000               Finds: 6am-10am:  CTR=0.08%, ROAS=1.2x
+           Daily reach: 95,000                           10am-6pm: (no data — dark)
+           Audience fully exhausted                       CPM 6am-10am = $3.80
+           in first 4 hours each day                     CPM 10am-6pm = $1.20 (missed)
+    Output: "Audience 142K is NOT too          Output: "Early morning inventory
+             small. Problem is ASAP pacing       3x more expensive than afternoon.
+             exhausting reach before noon.       ASAP pacing wastes $3,300/day
+             Expanding audience won't fix it."   on premium-priced morning slots."
+      │                                                   │
+      └──────────────────┬────────────────────────────────┘
+                         ▼
+  Agent 2 — Campaign Analyst (recommendations)
+    Context: Spend curve + audience + performance data
+    Output:
+      ┌──────────────────────────────────────────────────────────────┐
+      │ PACING OPTIMIZATION RECOMMENDATIONS                         │
+      │                                                              │
+      │ ROOT CAUSE: ASAP pacing + no frequency cap                   │
+      │ WASTED SPEND: ~$3,300/day on 3x overpriced morning inventory │
+      │                                                              │
+      │ Change 1 — Pacing Mode (implement today):                    │
+      │   ASAP → EVEN                                               │
+      │   Effect: spreads $5k budget evenly across 24h               │
+      │                                                              │
+      │ Change 2 — Frequency Cap (implement today):                  │
+      │   Set: 3 impressions per user per day                        │
+      │   Effect: prevents burning reach on same users 6am-10am      │
+      │                                                              │
+      │ Change 3 — Bid Adjustment (implement today):                  │
+      │   Reduce from $3.80 → $2.20 CPM                              │
+      │   Effect: stops winning every 6am auction at premium price   │
+      │                                                              │
+      │ Change 4 — Dayparting (implement this week):                  │
+      │   Weight 6am-10am at 0.6x, 10am-8pm at 1.2x                 │
+      │   Effect: shifts spend to cheaper, higher-intent afternoon   │
+      │                                                              │
+      │ EXPECTED OUTCOME: Budget spread across full day,             │
+      │   CPM drops from $3.80 → $1.80 average,                     │
+      │   ROAS improves from 1.2x → estimated 2.1x                  │
+      └──────────────────────────────────────────────────────────────┘
+
+  ---
+  Summary — Who Does What Across All 7
+  
+  ┌────────────────────────┬─────────────────────────┬───────────────────────────────┬──────────────────┬───────────────────┬──────────────────────┬───────────────────────────┬─────────────────────────────┐
+  │        Use Case        │     Agent 1 Triage      │       Agent 2 Campaign        │ Agent 3 Audience │   Agent 4 Pixel   │     Agent 5 Deal     │       Agent 6 Fraud       │      Agent 7 Reporting      │
+  ├────────────────────────┼─────────────────────────┼───────────────────────────────┼──────────────────┼───────────────────┼──────────────────────┼───────────────────────────┼─────────────────────────────┤
+  │ Campaign Not           │ Classifies +            │ Bid/pacing/spend              │ Segment/creative │ —                 │ Deal sync            │ —                         │ —                           │
+  │ Delivering             │ Synthesizes             │                               │                  │                   │                      │                           │                             │
+  ├────────────────────────┼─────────────────────────┼───────────────────────────────┼──────────────────┼───────────────────┼──────────────────────┼───────────────────────────┼─────────────────────────────┤
+  │ Reporting Discrepancy  │ KB lookup               │ —                             │ —                │ —                 │ —                    │ IVT + brand safety        │ Fetches reports +           │
+  │                        │                         │                               │                  │                   │                      │                           │ reconciles                  │
+  ├────────────────────────┼─────────────────────────┼───────────────────────────────┼──────────────────┼───────────────────┼──────────────────────┼───────────────────────────┼─────────────────────────────┤
+  │ IVT Fraud Spike        │ Escalation decision     │ Pause assessment              │ —                │ —                 │ —                    │ Leads entire              │ —                           │
+  │                        │                         │                               │                  │                   │                      │ investigation             │                             │
+  ├────────────────────────┼─────────────────────────┼───────────────────────────────┼──────────────────┼───────────────────┼──────────────────────┼───────────────────────────┼─────────────────────────────┤
+  │ PMP Deal Zero Bids     │ KB lookup               │ Campaign targeting            │ —                │ —                 │ Leads + fix          │ —                         │ —                           │
+  │                        │                         │                               │                  │                   │ checklist            │                           │                             │
+  ├────────────────────────┼─────────────────────────┼───────────────────────────────┼──────────────────┼───────────────────┼──────────────────────┼───────────────────────────┼─────────────────────────────┤
+  │ Pixel Attribution      │ KB + ITP docs           │ View-through config           │ —                │ Leads + match     │ —                    │ —                         │ —                           │
+  │                        │                         │                               │                  │ rate              │                      │                           │                             │
+  ├────────────────────────┼─────────────────────────┼───────────────────────────────┼──────────────────┼───────────────────┼──────────────────────┼───────────────────────────┼─────────────────────────────┤
+  │ Pre-Launch Audit       │ KB + GO/NO-GO           │ Campaign check ⚡             │ Segment check ⚡ │ Pixel check ⚡    │ Deal check ⚡        │ Brand safety check ⚡     │ —                           │
+  ├────────────────────────┼─────────────────────────┼───────────────────────────────┼──────────────────┼───────────────────┼──────────────────────┼───────────────────────────┼─────────────────────────────┤
+  │ Budget Pacing          │ —                       │ Leads entire +                │ Audience size    │ —                 │ —                    │ —                         │ —                           │
+  │                        │                         │ recommendations               │                  │                   │                      │                           │                             │
+  └────────────────────────┴─────────────────────────┴───────────────────────────────┴──────────────────┴───────────────────┴──────────────────────┴───────────────────────────┴─────────────────────────────┘
+
+  ⚡ = runs in parallel simultaneously
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Concrete Example — Use Case 1: Campaign Not Delivering
+
+  User query: "Campaign CMP-4491 has zero impressions"
+
+  4 separate LLM instances spin up, each unaware of the others' internals:
+
+  Agent 1 — Triage Specialist
+    LLM instance #1
+    Tools: [searchKnowledgeBase]
+    Does: Reads query → searches KB → classifies as "budget/bid issue"
+    Output: "Domain: budget exhaustion. KB doc-001 suggests checking spend curve."
+          ↓ passes output to →
+
+  Agent 2 — Campaign Analyst          Agent 3 — Audience & Creative      Agent 4 — Deal & Inventory
+    LLM instance #2                     LLM instance #3                    LLM instance #4
+    Tools: getCampaignStatus,           Tools: getSegmentStatus,           Tools: getDealStatus,
+           getPacingSettings,                  getSegmentUploadLog,                getDealBidStream,
+           getHourlySpendCurve,                getCreativeStatus,                  getSeatMapping
+           getCampaignFrequencySettings        getCreativeAsset
+    Does: Checks bid vs floor,          Does: Checks segment size,         Does: Checks deal sync,
+          pacing mode, spend curve             creative approval                  seat ID mapping
+    Output: "bid $0.95 < floor $1.20,   Output: "Segment size 0 —         Output: "Deal DEAL-9921
+             ASAP pacing, budget         upload error in row 44"            not synced — seat ID
+             hit at 08:03am"                                                 mismatch"
+                      ↓                          ↓                                  ↓
+                      └──────────── all 3 outputs go to ────────────────────────────┘
+
+  Agent 1 — Triage Specialist (again, synthesis role)
+    LLM instance #1 (with context from ALL 3 above)
+    Does: Merges findings, ranks by severity
+    Output: "1. Bid below floor (fix: raise to $1.30)
+             2. Segment upload failed (fix: re-upload CSV)
+             3. Deal seat ID mismatch (fix: update to DSP seat XYZ)"
+
+  ---
+  Where Multi-Agency Lives in the Code
+  
+  app/crew/tasks.py — each task is assigned to a different agent:
+  campaign_check = Task(agent=agents["campaign"], ...)   # LLM #2
+  audience_check = Task(agent=agents["audience_creative"], ...)  # LLM #3
+  deal_check     = Task(agent=agents["deal_inventory"], ...)     # LLM #4
+  
+  synthesis = Task(
+      agent=agents["triage"],           # LLM #1 again
+      context=[campaign_check, audience_check, deal_check],  # sees ALL outputs
+  )   
+  
+  app/crew/agents.py — each agent has different tools, so they literally cannot do each other's job:
+  agents["campaign"]    # can call getCampaignStatus — cannot call getDealStatus
+  agents["deal_inventory"]  # can call getDealStatus — cannot call getCampaignStatus
+  
+  app/crew/crews.py — CrewAI runs each task through its assigned agent's LLM:
+  crew = Crew(
+      agents=[triage, campaign, audience, deal],  # 4 LLM instances
+      tasks=[triage_task, campaign_task, audience_task, deal_task, synthesis_task],
+      process=Process.sequential,
+  )   
+  crew.kickoff()  # each task → different LLM with different tools

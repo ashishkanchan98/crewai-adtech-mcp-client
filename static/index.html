@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AdTech CrewAI — Multi-Agent Support</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh}
+  header{background:linear-gradient(135deg,#1a1030,#251a40);border-bottom:1px solid #553c9a;padding:16px 28px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header h1{font-size:1.2rem;font-weight:700;color:#fff}
+  .badge{background:#553c9a;color:#e9d8fd;font-size:0.68rem;padding:3px 8px;border-radius:20px;font-weight:600}
+  .badge.green{background:#276749;color:#c6f6d5}
+  .badge.blue{background:#2d4a6e;color:#90cdf4}
+  .badge.orange{background:#744210;color:#feebc8}
+  nav{display:flex;gap:4px;padding:0 28px;background:#141920;border-bottom:1px solid #2d3748;flex-wrap:wrap}
+  nav button{background:none;border:none;color:#a0aec0;padding:14px 18px;cursor:pointer;font-size:0.88rem;border-bottom:2px solid transparent;transition:all .2s}
+  nav button.active{color:#b794f4;border-bottom-color:#b794f4}
+  nav button:hover{color:#e2e8f0}
+  .page{display:none;padding:28px;max-width:980px;margin:0 auto}
+  .page.active{display:block}
+  .card{background:#1a1f2e;border:1px solid #2d3748;border-radius:10px;padding:22px;margin-bottom:20px}
+  .card h2{font-size:1rem;font-weight:600;color:#e2e8f0;margin-bottom:18px}
+  label{display:block;font-size:0.82rem;color:#a0aec0;margin-bottom:6px;margin-top:14px}
+  input,textarea,select{width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:6px;padding:10px 12px;color:#e2e8f0;font-size:0.9rem;outline:none;transition:border .2s}
+  input:focus,textarea:focus{border-color:#b794f4}
+  textarea{resize:vertical;min-height:90px;font-family:inherit}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  .btn{background:#553c9a;color:#fff;border:none;border-radius:6px;padding:11px 24px;cursor:pointer;font-size:0.9rem;font-weight:600;transition:background .2s;margin-top:18px}
+  .btn:hover{background:#6b46c1}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.sm{padding:7px 14px;font-size:0.82rem;margin-top:0}
+  .loading{text-align:center;padding:40px;color:#718096;display:none}
+  .loading.show{display:block}
+  .spinner{display:inline-block;width:28px;height:28px;border:3px solid #2d3748;border-top-color:#b794f4;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .result{background:#0d1117;border:1px solid #2d3748;border-radius:8px;padding:18px;margin-top:20px;display:none}
+  .result.show{display:block}
+  .answer-text{white-space:pre-wrap;font-size:0.88rem;line-height:1.65;color:#cbd5e0}
+  table{width:100%;border-collapse:collapse;font-size:0.86rem}
+  th{text-align:left;padding:10px 12px;color:#718096;border-bottom:1px solid #2d3748;font-weight:600}
+  td{padding:10px 12px;border-bottom:1px solid #1e2533;vertical-align:top}
+  tr:hover td{background:#1a2035}
+  .tool-tag{background:#1e293b;border:1px solid #334155;color:#93c5fd;font-size:0.73rem;padding:3px 8px;border-radius:4px;font-family:monospace;display:inline-block;margin:2px}
+  .tool-tag.kb{border-color:#553c9a;color:#b794f4}
+  .section-title{font-size:0.78rem;text-transform:uppercase;letter-spacing:.08em;color:#718096;margin-bottom:10px;margin-top:20px}
+  .arch-box{background:#0d1117;border:1px solid #2d3748;border-radius:8px;padding:18px;font-family:monospace;font-size:0.8rem;color:#a0aec0;white-space:pre;overflow-x:auto;line-height:1.7}
+  .highlight{color:#b794f4}
+  .green-text{color:#68d391}
+  .yellow-text{color:#f6e05e}
+  .red-text{color:#fc8181}
+  .blue-text{color:#63b3ed}
+
+  /* Crew badge */
+  .crew-badge{display:inline-flex;align-items:center;gap:8px;background:#2d1f4e;border:1px solid #553c9a;border-radius:8px;padding:8px 14px;margin-bottom:16px}
+  .crew-badge .crew-icon{font-size:1.1rem}
+  .crew-badge .crew-name{font-size:0.85rem;font-weight:700;color:#b794f4}
+  .crew-badge .crew-sub{font-size:0.75rem;color:#718096}
+
+  /* Agent pipeline */
+  .agent-pipeline{display:flex;flex-direction:column;gap:0;margin-bottom:16px}
+  .agent-step{display:flex;gap:12px;position:relative}
+  .agent-step:not(:last-child)::before{content:'';position:absolute;left:11px;top:28px;width:2px;height:calc(100% + 4px);background:#2d3748;z-index:0}
+  .agent-dot{width:24px;height:24px;border-radius:50%;background:#553c9a;border:2px solid #b794f4;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:#e9d8fd;z-index:1}
+  .agent-content{background:#0d1117;border:1px solid #2d3748;border-radius:8px;padding:12px 14px;flex:1;margin-bottom:4px}
+  .agent-role{font-size:0.78rem;font-weight:700;color:#b794f4;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+  .agent-output{font-size:0.82rem;color:#a0aec0;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto}
+
+  /* Use case chips */
+  .uc-chips{display:flex;flex-wrap:wrap;gap:8px}
+  .uc-chip{background:#0d1117;border:1px solid #2d3748;border-radius:6px;padding:6px 12px;font-size:0.78rem;color:#718096;cursor:pointer;transition:all .2s}
+  .uc-chip:hover,.uc-chip.active{border-color:#553c9a;color:#b794f4;background:#1a1030}
+
+  /* Status pill */
+  .status-pill{padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;display:inline-block}
+  .RESOLVED_BY_CREW{background:#1c4532;color:#68d391}
+  .ESCALATED{background:#7b341e;color:#fc8181}
+
+  /* Info grid */
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .info-box{background:#0d1117;border:1px solid #2d3748;border-radius:8px;padding:16px}
+  .info-box h3{font-size:0.82rem;color:#a0aec0;margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em}
+  .info-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #1e2533;font-size:0.83rem}
+  .info-row:last-child{border-bottom:none}
+  .info-val{color:#b794f4;font-family:monospace;font-size:0.8rem}
+
+  /* Ticket expand */
+  .ticket-row{cursor:pointer}
+  .ticket-row:hover td{background:#1e2840}
+  .ticket-expand{display:none;background:#0d1117}
+  .ticket-expand.open{display:table-row}
+  .ticket-answer{white-space:pre-wrap;font-size:0.83rem;line-height:1.65;color:#cbd5e0;padding:14px 16px}
+
+  /* AdOps/PubOps guide accordion */
+  .uc-guide-item{background:#0d1117;border:1px solid #2d3748;border-radius:8px;margin-bottom:6px;cursor:pointer;transition:border-color .2s}
+  .uc-guide-item:hover{border-color:#553c9a}
+  .uc-guide-header{display:flex;align-items:center;gap:12px;padding:12px 16px;flex-wrap:wrap}
+  .uc-guide-num{font-size:0.7rem;font-weight:700;padding:3px 9px;border-radius:12px;white-space:nowrap;flex-shrink:0}
+  .uc-guide-title{font-size:0.9rem;font-weight:600;color:#e2e8f0;flex:1}
+  .uc-guide-who{font-size:0.75rem;color:#718096}
+  .uc-guide-arrow{font-size:0.7rem;color:#718096;margin-left:auto;transition:transform .2s;flex-shrink:0}
+  .uc-guide-arrow.open{transform:rotate(90deg)}
+  .uc-guide-body{display:none;border:1px solid #2d3748;border-top:none;border-radius:0 0 8px 8px;padding:14px 16px;margin-top:-6px;margin-bottom:6px;background:#0a0d14}
+  .uc-guide-body.open{display:block}
+  .uc-guide-row{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+  .uc-label{font-size:0.72rem;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.06em;min-width:120px;padding-top:2px;flex-shrink:0}
+  .uc-val{font-size:0.82rem;color:#a0aec0;line-height:1.6;flex:1}
+  .uc-val code{background:#1a1f2e;border:1px solid #2d3748;padding:1px 6px;border-radius:4px;font-size:0.75rem;color:#b794f4}
+  .uc-examples{display:flex;flex-direction:column;gap:6px;flex:1}
+  .uc-example{background:#1a1f2e;border-left:3px solid #553c9a;padding:7px 12px;border-radius:0 6px 6px 0;font-size:0.82rem;color:#cbd5e0;font-style:italic}
+  .uc-curl{font-family:monospace;font-size:0.75rem;background:#0d1117;border:1px solid #2d3748;border-radius:6px;padding:10px 14px;color:#a0aec0;white-space:pre;overflow-x:auto;flex:1;line-height:1.6}
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:1.6rem">🤖</span>
+  <div>
+    <h1>AdTech CrewAI Client <span style="color:#a0aec0;font-weight:400">— Multi-Agent Support</span></h1>
+  </div>
+  <span class="badge">CrewAI</span>
+  <span class="badge blue">7 Agents</span>
+  <span class="badge orange">7 Use Cases</span>
+  <span class="badge green" id="health-badge">checking...</span>
+</header>
+
+<nav>
+  <button class="active" onclick="showPage('query',this)">New Query</button>
+  <button onclick="showPage('tickets',this)">All Tickets</button>
+  <button onclick="showPage('crews',this)">Crew Architecture</button>
+  <button onclick="showPage('agents',this)">Agent Roster</button>
+  <button onclick="showPage('api',this)">API Reference</button>
+</nav>
+
+<!-- NEW QUERY ──────────────────────────────────────────────────────────────── -->
+<div class="page active" id="page-query">
+  <div class="card">
+    <h2>Submit Support Query</h2>
+    <label>Query *</label>
+    <textarea id="q-query" placeholder="e.g. Campaign CMP-4491 is not delivering any impressions"></textarea>
+
+    <div class="row">
+      <div><label>Campaign ID</label><input id="q-campaign" placeholder="CMP-4491"></div>
+      <div><label>Advertiser ID</label><input id="q-advertiser" placeholder="ADV-8821"></div>
+    </div>
+    <div class="row3">
+      <div><label>Segment ID</label><input id="q-segment" placeholder="SEG-9012"></div>
+      <div><label>Deal ID</label><input id="q-deal" placeholder="DEAL-7723"></div>
+      <div><label>Pixel ID</label><input id="q-pixel" placeholder="PX-5511"></div>
+    </div>
+    <div class="row">
+      <div><label>Line Item ID</label><input id="q-lineitem" placeholder="LI-3301"></div>
+      <div><label>Account Tier</label>
+        <select id="q-tier" style="margin-top:6px">
+          <option value="">— Select —</option>
+          <option>ENTERPRISE</option>
+          <option>STANDARD</option>
+          <option>SELF_SERVE</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn" id="submit-btn" onclick="submitQuery()">Run Crew &#9654;</button>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p id="loading-msg">CrewAI agents collaborating...</p>
+    <p style="font-size:0.78rem;margin-top:8px;color:#4a5568">Triage → Domain specialists → Synthesis</p>
+  </div>
+
+  <div class="result" id="result">
+    <!-- Crew badge -->
+    <div id="crew-badge-wrap"></div>
+
+    <!-- Agent pipeline -->
+    <div class="section-title">Agent Activity</div>
+    <div class="agent-pipeline" id="agent-pipeline"></div>
+
+    <!-- Final answer -->
+    <div class="section-title">Synthesized Answer</div>
+    <div style="background:#0d1117;border:1px solid #2d3748;border-radius:8px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span class="status-pill" id="result-status">–</span>
+        <span style="font-size:0.78rem;color:#718096" id="result-ticket"></span>
+      </div>
+      <div class="answer-text" id="result-answer"></div>
+    </div>
+  </div>
+
+  <!-- Quick scenarios -->
+  <div class="card" style="margin-top:20px">
+    <h2>Quick Test Scenarios</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <button class="btn sm" onclick="loadScenario('delivery')">Campaign Not Delivering</button>
+      <button class="btn sm" onclick="loadScenario('discrepancy')">Reporting Discrepancy</button>
+      <button class="btn sm" onclick="loadScenario('fraud')">IVT Fraud Spike</button>
+      <button class="btn sm" onclick="loadScenario('deal')">PMP Deal Zero Bids</button>
+      <button class="btn sm" onclick="loadScenario('pixel')">Pixel Attribution Drop</button>
+      <button class="btn sm" onclick="loadScenario('audit')">Pre-Launch Audit</button>
+      <button class="btn sm" onclick="loadScenario('pacing')">Budget Pacing Issue</button>
+    </div>
+  </div>
+</div>
+
+<!-- ALL TICKETS ─────────────────────────────────────────────────────────────── -->
+<div class="page" id="page-tickets">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="margin:0">All Tickets</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="ticket-count" style="color:#718096;font-size:0.82rem"></span>
+        <button class="btn sm" onclick="loadTickets()">Refresh</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>Ticket ID</th><th>Query</th><th>Crew / Use Case</th><th>Agents</th><th>Status</th><th>Created</th>
+        </tr></thead>
+        <tbody id="tickets-body">
+          <tr><td colspan="6" style="color:#718096;text-align:center;padding:20px">Click Refresh to load tickets</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- CREW ARCHITECTURE ───────────────────────────────────────────────────────── -->
+<div class="page" id="page-crews">
+
+  <div class="card">
+    <h2>CrewAI Architecture Overview</h2>
+    <div class="arch-box">
+<span class="highlight">Query → Classifier → Crew Router → Specialized Crew → Synthesized Answer</span>
+
+                        User Query
+                            │
+                     ┌──────▼──────┐
+                     │   Router    │  keyword classifier → selects 1 of 7 crews
+                     └──────┬──────┘
+                            │
+          ┌─────────────────┼──────────────────┐
+          ▼                 ▼                  ▼
+  <span class="green-text">Delivery Crew</span>      <span class="blue-text">Reporting Crew</span>     <span class="yellow-text">Fraud Crew</span>      ← parallel where possible
+  <span class="green-text">Deal Crew</span>          <span class="blue-text">Pixel Crew</span>         <span class="yellow-text">Audit Crew</span>
+  <span class="highlight">Pacing Crew</span>
+          │
+          └──▶ Triage Agent synthesizes all domain findings → Final Report
+</div>
+  </div>
+
+  <div class="card">
+    <h2>7 Use Case Crews</h2>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="background:#0d1117;border:1px solid #553c9a;border-radius:8px;padding:14px">
+        <div style="font-size:0.7rem;font-weight:700;color:#b794f4;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Use Case 1</div>
+        <div style="font-size:0.88rem;font-weight:600;color:#e2e8f0;margin-bottom:6px">Campaign Not Delivering</div>
+        <div style="font-size:0.78rem;color:#718096">Triage → Campaign + Audience + Deal → Synthesis</div>
+        <div style="margin-top:8px;font-size:0.72rem;color:#a0aec0">Trigger: zero impressions, paused, budget hit</div>
+      </div>
+      <div style="background:#0d1117;border:1px solid #2d4a6e;border-radius:8px;padding:14px">
+        <div style="font-size:0.7rem;font-weight:700;color:#63b3ed;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Use Case 2</div>
+        <div style="font-size:0.88rem;font-weight:600;color:#e2e8f0;margin-bottom:6px">Reporting Discrepancy</div>
+        <div style="font-size:0.78rem;color:#718096">Reporting + Fraud/BS + KB → Reconciliation</div>
+        <div style="margin-top:8px;font-size:0.72rem;color:#a0aec0">Trigger: DSP vs GAM gap, mismatched counts</div>
+      </div>
+      <div style="background:#0d1117;border:1px solid #7b341e;border-radius:8px;padding:14px">
+        <div style="font-size:0.7rem;font-weight:700;color:#fc8181;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Use Case 3</div>
+        <div style="font-size:0.88rem;font-weight:600;color:#e2e8f0;margin-bottom:6px">IVT / Fraud Spike</div>
+        <div style="font-size:0.78rem;color:#718096">Fraud → Placement + Brand Safety + Campaign → Escalation</div>
+        <div style="margin-top:8px;font-size:0.72rem;color:#a0aec0">Trigger: IVT rate spike, bot traffic detected</div>
+      </div>
+      <div style="background:#0d1117;border:1px solid #276749;border-radius:8px;padding:14px">
+        <div style="font-size:0.7rem;font-weight:700;color:#68d391;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Use Case 4</div>
+        <div style="font-size:0.88rem;font-weight:600;color:#e2e8f0;margin-bottom:6px">PMP Deal Zero Bids</div>
+        <div style="font-size:0.78rem;color:#718096">Deal → Campaign + Seat Mapping + KB → Fix Checklist</div>
+        <div style="margin-top:8px;font-size:0.72rem;color:#a0aec0">Trigger: zero bid requests on a live PMP deal</div>
+      </div>
+      <div style="background:#0d1117;border:1px solid #744210;border-radius:8px;padding:14px">
+        <div style="font-size:0.7rem;font-weight:700;color:#f6ad55;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Use Case 5</div>
+        <div style="font-size:0.88rem;font-weight:600;color:#e2e8f0;margin-bottom:6px">Pixel Attribution Drop</div>
+        <div style="font-size:0.78rem;color:#718096">Pixel → Match Rate + KB + Campaign → Mitigation</div>
+        <div style="margin-top:8px;font-size:0.72rem;color:#a0aec0">Trigger: conversions dropped, ITP interference</div>
+      </div>
+      <div style="background:#0d1117;border:1px solid #4c51bf;border-radius:8px;padding:14px">
+        <div style="font-size:0.7rem;font-weight:700;color:#7f9cf5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Use Case 6</div>
+        <div style="font-size:0.88rem;font-weight:600;color:#e2e8f0;margin-bottom:6px">Pre-Launch Audit</div>
+        <div style="font-size:0.78rem;color:#718096">All 6 agents fire in parallel → GO / NO-GO</div>
+        <div style="margin-top:8px;font-size:0.72rem;color:#a0aec0">Trigger: audit before campaign launch</div>
+      </div>
+    </div>
+
+    <div style="background:#0d1117;border:1px solid #2d3748;border-radius:8px;padding:14px;margin-top:12px">
+      <div style="font-size:0.7rem;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Use Case 7</div>
+      <div style="font-size:0.88rem;font-weight:600;color:#e2e8f0;margin-bottom:6px">Budget Pacing Optimization</div>
+      <div style="font-size:0.78rem;color:#718096">Campaign → Audience + Performance → Bid/Frequency Recommendations</div>
+      <div style="margin-top:8px;font-size:0.72rem;color:#a0aec0">Trigger: budget burns 80% before 10am, ASAP pacing mode</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Execution Patterns</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div style="background:#0a1a10;border:1px solid #276749;border-radius:8px;padding:14px">
+        <div style="font-size:0.75rem;font-weight:700;color:#68d391;margin-bottom:10px">Sequential (most crews)</div>
+        <div class="arch-box" style="font-size:0.75rem">Triage Task
+  → Domain Agent Task
+  → KB Lookup Task
+  → Synthesis Task
+
+Each task sees previous output.
+Good for dependent diagnostics.</div>
+      </div>
+      <div style="background:#0a0d1a;border:1px solid #4c51bf;border-radius:8px;padding:14px">
+        <div style="font-size:0.75rem;font-weight:700;color:#7f9cf5;margin-bottom:10px">Parallel (Use Case 6 — Pre-Launch Audit)</div>
+        <div class="arch-box" style="font-size:0.75rem">Campaign ──┐
+Audience  ──┤
+Pixel     ──┼──▶ GO/NO-GO
+Deal      ──┤
+Fraud     ──┤
+KB        ──┘
+
+async_execution=True per task.
+6× faster than sequential.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AdOps / PubOps Guide ─────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>AdOps &amp; PubOps — How to Use Each Use Case</h2>
+    <p style="font-size:0.82rem;color:#718096;margin-bottom:18px">The system auto-routes your query based on keywords. Just describe the problem — no need to pick an agent.</p>
+
+    <!-- UC1 -->
+    <div class="uc-guide-item" onclick="toggleUC('uc1')">
+      <div class="uc-guide-header">
+        <span class="uc-guide-num" style="background:#553c9a;color:#e9d8fd">UC 1</span>
+        <span class="uc-guide-title">Campaign Not Delivering</span>
+        <span class="uc-guide-who">AdOps — buyer/advertiser campaigns</span>
+        <span class="uc-guide-arrow" id="uc1-arrow">▶</span>
+      </div>
+    </div>
+    <div class="uc-guide-body" id="uc1-body">
+      <div class="uc-guide-row"><span class="uc-label">Who uses it</span><span class="uc-val">AdOps managing buyer/advertiser campaigns</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Trigger keywords</span><span class="uc-val"><code>not delivering</code> · <code>zero impressions</code> · <code>no impressions</code> · <code>not spending</code> · <code>paused</code> · <code>delivery stopped</code> · <code>impressions dropped</code></span></div>
+      <div class="uc-guide-row"><span class="uc-label">Query examples</span>
+        <div class="uc-examples">
+          <div class="uc-example">"Campaign CMP-4491 has zero impressions for 6 hours"</div>
+          <div class="uc-example">"Campaign is not delivering since morning, no spend"</div>
+          <div class="uc-example">"CMP-9201 stopped running — impressions dropped to zero"</div>
+        </div>
+      </div>
+      <div class="uc-guide-row"><span class="uc-label">Agents fired</span><span class="uc-val" style="color:#b794f4">Triage → Campaign Analyst + Audience/Creative + Deal &amp; Inventory → Triage (synthesis)</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Curl</span>
+        <div class="uc-curl">curl -X POST http://localhost:8090/api/v1/crew/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Campaign CMP-4491 has zero impressions for 6 hours", "campaignId": "CMP-4491"}'</div>
+      </div>
+    </div>
+
+    <!-- UC2 -->
+    <div class="uc-guide-item" onclick="toggleUC('uc2')">
+      <div class="uc-guide-header">
+        <span class="uc-guide-num" style="background:#2d4a6e;color:#90cdf4">UC 2</span>
+        <span class="uc-guide-title">Reporting Discrepancy</span>
+        <span class="uc-guide-who">AdOps / PubOps — DSP vs GAM gap, billing disputes</span>
+        <span class="uc-guide-arrow" id="uc2-arrow">▶</span>
+      </div>
+    </div>
+    <div class="uc-guide-body" id="uc2-body">
+      <div class="uc-guide-row"><span class="uc-label">Who uses it</span><span class="uc-val">AdOps reconciling DSP vs GAM numbers; PubOps resolving billing disputes</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Trigger keywords</span><span class="uc-val"><code>discrepancy</code> · <code>gap</code> · <code>mismatch</code> · <code>DSP shows</code> · <code>GAM shows</code> · <code>reconcile</code> · <code>different numbers</code> · <code>reporting gap</code></span></div>
+      <div class="uc-guide-row"><span class="uc-label">Query examples</span>
+        <div class="uc-examples">
+          <div class="uc-example">"DSP shows 120K impressions, GAM shows 84K — 30% gap, need reconciliation"</div>
+          <div class="uc-example">"There's a discrepancy between our DSP and GAM impression counts"</div>
+          <div class="uc-example">"DSP shows 500K but publisher GAM only shows 350K — reporting mismatch"</div>
+        </div>
+      </div>
+      <div class="uc-guide-row"><span class="uc-label">Agents fired</span><span class="uc-val" style="color:#63b3ed">Triage (KB) → Reporting &amp; Discrepancy → Fraud/Brand Safety → Reporting (reconciliation)</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Curl</span>
+        <div class="uc-curl">curl -X POST http://localhost:8090/api/v1/crew/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "DSP shows 120K impressions, GAM shows 84K — 30% gap", "campaignId": "CMP-1122", "advertiserId": "ADV-789"}'</div>
+      </div>
+    </div>
+
+    <!-- UC3 -->
+    <div class="uc-guide-item" onclick="toggleUC('uc3')">
+      <div class="uc-guide-header">
+        <span class="uc-guide-num" style="background:#7b341e;color:#fc8181">UC 3</span>
+        <span class="uc-guide-title">IVT / Fraud Spike</span>
+        <span class="uc-guide-who">AdOps / PubOps — bot traffic, IVT spikes</span>
+        <span class="uc-guide-arrow" id="uc3-arrow">▶</span>
+      </div>
+    </div>
+    <div class="uc-guide-body" id="uc3-body">
+      <div class="uc-guide-row"><span class="uc-label">Who uses it</span><span class="uc-val">AdOps when IVT rates spike; PubOps responding to fraud complaints from buyers</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Trigger keywords</span><span class="uc-val"><code>IVT</code> · <code>fraud</code> · <code>bot traffic</code> · <code>invalid traffic</code> · <code>SIVT</code> · <code>GIVT</code> · <code>IAS</code> · <code>DoubleVerify</code> · <code>suspicious clicks</code> · <code>placement quality</code></span></div>
+      <div class="uc-guide-row"><span class="uc-label">Query examples</span>
+        <div class="uc-examples">
+          <div class="uc-example">"IVT rate jumped from 3% to 18% on ADV-789 overnight"</div>
+          <div class="uc-example">"Fraud spike detected — bot traffic is very high on this campaign"</div>
+          <div class="uc-example">"SIVT rate is 22%, IAS flagging invalid traffic on CMP-9901"</div>
+        </div>
+      </div>
+      <div class="uc-guide-row"><span class="uc-label">Agents fired</span><span class="uc-val" style="color:#fc8181">Fraud/Brand Safety (lead) → Placement + Campaign Analyst → Triage (escalation: PAUSE_NOW or continue)</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Curl</span>
+        <div class="uc-curl">curl -X POST http://localhost:8090/api/v1/crew/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "IVT rate jumped from 3% to 18% overnight, bot traffic suspected", "campaignId": "CMP-9901", "advertiserId": "ADV-789"}'</div>
+      </div>
+    </div>
+
+    <!-- UC4 -->
+    <div class="uc-guide-item" onclick="toggleUC('uc4')">
+      <div class="uc-guide-header">
+        <span class="uc-guide-num" style="background:#276749;color:#c6f6d5">UC 4</span>
+        <span class="uc-guide-title">PMP Deal Zero Bids</span>
+        <span class="uc-guide-who">AdOps / PubOps — private marketplace deal issues</span>
+        <span class="uc-guide-arrow" id="uc4-arrow">▶</span>
+      </div>
+    </div>
+    <div class="uc-guide-body" id="uc4-body">
+      <div class="uc-guide-row"><span class="uc-label">Who uses it</span><span class="uc-val">AdOps troubleshooting private marketplace deals; PubOps when buyer reports no bids on their deal</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Trigger keywords</span><span class="uc-val"><code>deal</code> · <code>PMP</code> · <code>private marketplace</code> · <code>zero bids</code> · <code>no bid requests</code> · <code>bid stream</code> · <code>seat ID</code> · <code>deal sync</code> · <code>0 bid</code></span></div>
+      <div class="uc-guide-row"><span class="uc-label">Query examples</span>
+        <div class="uc-examples">
+          <div class="uc-example">"Deal DEAL-9921 has been live 48 hours with 0 bid requests"</div>
+          <div class="uc-example">"PMP deal has zero bids — seat ID issue suspected"</div>
+          <div class="uc-example">"Private marketplace deal not getting any bids from buyer"</div>
+        </div>
+      </div>
+      <div class="uc-guide-row"><span class="uc-label">Agents fired</span><span class="uc-val" style="color:#68d391">Deal &amp; Inventory (lead) + Campaign Analyst + Triage (KB) → Deal &amp; Inventory (fix checklist)</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Curl</span>
+        <div class="uc-curl">curl -X POST http://localhost:8090/api/v1/crew/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Deal DEAL-9921 has been live 48 hours with zero bid requests", "dealId": "DEAL-9921", "campaignId": "CMP-5512"}'</div>
+      </div>
+    </div>
+
+    <!-- UC5 -->
+    <div class="uc-guide-item" onclick="toggleUC('uc5')">
+      <div class="uc-guide-header">
+        <span class="uc-guide-num" style="background:#744210;color:#feebc8">UC 5</span>
+        <span class="uc-guide-title">Pixel &amp; Conversion Attribution Drop</span>
+        <span class="uc-guide-who">AdOps — conversion tracking, ITP/iOS issues</span>
+        <span class="uc-guide-arrow" id="uc5-arrow">▶</span>
+      </div>
+    </div>
+    <div class="uc-guide-body" id="uc5-body">
+      <div class="uc-guide-row"><span class="uc-label">Who uses it</span><span class="uc-val">AdOps when advertiser reports conversion tracking broken; anyone troubleshooting ITP/iOS issues</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Trigger keywords</span><span class="uc-val"><code>pixel</code> · <code>conversion</code> · <code>attribution</code> · <code>ITP</code> · <code>tracking</code> · <code>conversion drop</code> · <code>iOS 17</code> · <code>match rate</code> · <code>server-side</code> · <code>view-through</code></span></div>
+      <div class="uc-guide-row"><span class="uc-label">Query examples</span>
+        <div class="uc-examples">
+          <div class="uc-example">"Conversions dropped 75% after iOS 17 update. Pixel fires but no attribution"</div>
+          <div class="uc-example">"Pixel is firing but conversion match rate is very low"</div>
+          <div class="uc-example">"Attribution dropped after iOS update — ITP issue suspected"</div>
+        </div>
+      </div>
+      <div class="uc-guide-row"><span class="uc-label">Agents fired</span><span class="uc-val" style="color:#f6ad55">Pixel &amp; Attribution (lead) + Campaign Analyst → Triage (KB: ITP docs) → Pixel &amp; Attribution (mitigation plan)</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Curl</span>
+        <div class="uc-curl">curl -X POST http://localhost:8090/api/v1/crew/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Conversions dropped 75% after iOS 17 update, pixel fires but no attribution", "campaignId": "CMP-7701", "pixelId": "PIX-3310"}'</div>
+      </div>
+    </div>
+
+    <!-- UC6 -->
+    <div class="uc-guide-item" onclick="toggleUC('uc6')">
+      <div class="uc-guide-header">
+        <span class="uc-guide-num" style="background:#4c51bf;color:#e0e7ff">UC 6</span>
+        <span class="uc-guide-title">Pre-Launch Audit <span style="font-size:0.72rem;color:#718096;font-weight:400">(all 6 agents in parallel)</span></span>
+        <span class="uc-guide-who">AdOps / PubOps — pre-flight before go-live</span>
+        <span class="uc-guide-arrow" id="uc6-arrow">▶</span>
+      </div>
+    </div>
+    <div class="uc-guide-body" id="uc6-body">
+      <div class="uc-guide-row"><span class="uc-label">Who uses it</span><span class="uc-val">AdOps before going live on any campaign; PubOps doing a pre-flight check for a new deal</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Trigger keywords</span><span class="uc-val"><code>audit</code> · <code>pre-launch</code> · <code>before launch</code> · <code>go live</code> · <code>launch tomorrow</code> · <code>ready to launch</code> · <code>launch checklist</code> · <code>campaign audit</code></span></div>
+      <div class="uc-guide-row"><span class="uc-label">Query examples</span>
+        <div class="uc-examples">
+          <div class="uc-example">"Audit campaign CMP-5500 before it goes live tomorrow"</div>
+          <div class="uc-example">"Pre-launch checklist for campaign CMP-8800 — going live today"</div>
+          <div class="uc-example">"Run a full campaign audit before we launch"</div>
+        </div>
+      </div>
+      <div class="uc-guide-row"><span class="uc-label">Agents fired</span><span class="uc-val" style="color:#7f9cf5">All 6 agents simultaneously (parallel) → Triage synthesizes GO / NO-GO verdict</span></div>
+      <div class="uc-guide-row" style="background:#1a1030;border-radius:6px;padding:8px 12px;margin-bottom:6px"><span style="color:#f6ad55;font-size:0.8rem">⚠ Most comprehensive check — expect 15–30 seconds response time.</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Curl</span>
+        <div class="uc-curl">curl -X POST http://localhost:8090/api/v1/crew/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Audit campaign CMP-5500 before it goes live tomorrow", "campaignId": "CMP-5500", "advertiserId": "ADV-101"}'</div>
+      </div>
+    </div>
+
+    <!-- UC7 -->
+    <div class="uc-guide-item" onclick="toggleUC('uc7')">
+      <div class="uc-guide-header">
+        <span class="uc-guide-num" style="background:#2d3748;color:#e2e8f0">UC 7</span>
+        <span class="uc-guide-title">Budget Pacing Optimization</span>
+        <span class="uc-guide-who">AdOps — overpacing, ASAP pacing, front-loaded spend</span>
+        <span class="uc-guide-arrow" id="uc7-arrow">▶</span>
+      </div>
+    </div>
+    <div class="uc-guide-body" id="uc7-body">
+      <div class="uc-guide-row"><span class="uc-label">Who uses it</span><span class="uc-val">AdOps when a campaign burns budget too fast or too slow</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Trigger keywords</span><span class="uc-val"><code>pacing</code> · <code>budget</code> · <code>overspend</code> · <code>burning</code> · <code>depleting</code> · <code>10am</code> · <code>ASAP pacing</code> · <code>budget exhausted</code> · <code>daily budget</code> · <code>overpacing</code> · <code>front-loaded</code></span></div>
+      <div class="uc-guide-row"><span class="uc-label">Query examples</span>
+        <div class="uc-examples">
+          <div class="uc-example">"Campaign burns 80% of daily budget by 10am every day"</div>
+          <div class="uc-example">"Budget is depleting too fast — overpacing issue"</div>
+          <div class="uc-example">"ASAP pacing causing front-loaded spend, need optimization"</div>
+        </div>
+      </div>
+      <div class="uc-guide-row"><span class="uc-label">Agents fired</span><span class="uc-val" style="color:#a0aec0">Campaign Analyst (lead) + Audience/Creative → Campaign Analyst (recommendations)</span></div>
+      <div class="uc-guide-row"><span class="uc-label">Curl</span>
+        <div class="uc-curl">curl -X POST http://localhost:8090/api/v1/crew/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Campaign burns 80% of daily budget by 10am, ASAP pacing issue", "campaignId": "CMP-3301"}'</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyword Cheat Sheet ───────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Keyword Cheat Sheet</h2>
+    <p style="font-size:0.82rem;color:#718096;margin-bottom:14px">Include at least one of these keywords to guarantee correct crew routing.</p>
+    <div style="background:#0d1117;border:1px solid #2d3748;border-radius:8px;overflow:hidden;font-size:0.82rem">
+      <div style="display:grid;grid-template-columns:220px 1fr;background:#161b22;padding:8px 14px;font-size:0.72rem;font-weight:700;color:#718096;text-transform:uppercase;gap:8px">
+        <div>Problem</div><div>Include these words in your query</div>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <span style="color:#e2e8f0">No impressions / not running</span>
+        <span style="color:#a0aec0;font-size:0.78rem"><code style="color:#b794f4">not delivering</code> · <code style="color:#b794f4">zero impressions</code> · <code style="color:#b794f4">no spend</code></span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <span style="color:#e2e8f0">Numbers don't match</span>
+        <span style="color:#a0aec0;font-size:0.78rem"><code style="color:#63b3ed">discrepancy</code> · <code style="color:#63b3ed">gap</code> · <code style="color:#63b3ed">DSP shows</code> · <code style="color:#63b3ed">GAM shows</code></span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <span style="color:#e2e8f0">Bot / fraud traffic</span>
+        <span style="color:#a0aec0;font-size:0.78rem"><code style="color:#fc8181">IVT</code> · <code style="color:#fc8181">fraud</code> · <code style="color:#fc8181">bot traffic</code> · <code style="color:#fc8181">SIVT</code></span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <span style="color:#e2e8f0">Deal not working</span>
+        <span style="color:#a0aec0;font-size:0.78rem"><code style="color:#68d391">deal</code> · <code style="color:#68d391">PMP</code> · <code style="color:#68d391">zero bids</code> · <code style="color:#68d391">seat ID</code></span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <span style="color:#e2e8f0">Tracking broken</span>
+        <span style="color:#a0aec0;font-size:0.78rem"><code style="color:#f6ad55">pixel</code> · <code style="color:#f6ad55">conversion</code> · <code style="color:#f6ad55">attribution</code> · <code style="color:#f6ad55">ITP</code></span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <span style="color:#e2e8f0">Before going live</span>
+        <span style="color:#a0aec0;font-size:0.78rem"><code style="color:#7f9cf5">audit</code> · <code style="color:#7f9cf5">pre-launch</code> · <code style="color:#7f9cf5">before launch</code></span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <span style="color:#e2e8f0">Budget burns too fast</span>
+        <span style="color:#a0aec0;font-size:0.78rem"><code style="color:#a0aec0">pacing</code> · <code style="color:#a0aec0">budget</code> · <code style="color:#a0aec0">overspend</code> · <code style="color:#a0aec0">burning</code></span>
+      </div>
+    </div>
+    <div style="margin-top:14px;background:#1a1030;border:1px solid #553c9a;border-radius:8px;padding:12px 16px;font-size:0.82rem;color:#a0aec0">
+      <strong style="color:#b794f4">Fallback:</strong> If your query matches no keywords, the system defaults to Use Case 1 (Campaign Not Delivering). Include at least one keyword from the table above to guarantee correct routing.
+    </div>
+  </div>
+</div>
+
+<!-- AGENT ROSTER ────────────────────────────────────────────────────────────── -->
+<div class="page" id="page-agents">
+  <div class="card">
+    <h2>Agent Roster — 7 Specialized Agents</h2>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th style="color:#b794f4">Agent</th>
+          <th>Role</th>
+          <th>Tools Assigned</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td style="color:#e2e8f0;font-weight:600;white-space:nowrap">Triage Agent</td>
+            <td style="color:#a0aec0;font-size:0.82rem">Reads query, classifies problem domain, delegates & synthesizes</td>
+            <td><span class="tool-tag kb">searchKnowledgeBase</span></td>
+          </tr>
+          <tr>
+            <td style="color:#e2e8f0;font-weight:600;white-space:nowrap">Campaign Analyst</td>
+            <td style="color:#a0aec0;font-size:0.82rem">Campaign health, pacing, frequency, spend</td>
+            <td>
+              <span class="tool-tag">getCampaignStatus</span>
+              <span class="tool-tag">getPacingSettings</span>
+              <span class="tool-tag">getCampaignFrequencySettings</span>
+              <span class="tool-tag">getHourlySpendCurve</span>
+              <span class="tool-tag">getPerformanceMetrics</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="color:#e2e8f0;font-weight:600;white-space:nowrap">Audience &amp; Creative</td>
+            <td style="color:#a0aec0;font-size:0.82rem">Segment readiness + creative compliance</td>
+            <td>
+              <span class="tool-tag">getSegmentStatus</span>
+              <span class="tool-tag">getSegmentUploadLog</span>
+              <span class="tool-tag">getCreativeStatus</span>
+              <span class="tool-tag">getCreativeAsset</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="color:#e2e8f0;font-weight:600;white-space:nowrap">Pixel &amp; Attribution</td>
+            <td style="color:#a0aec0;font-size:0.82rem">Tracking health, conversion gaps, ITP issues</td>
+            <td>
+              <span class="tool-tag">getPixelFireLog</span>
+              <span class="tool-tag">getAttributionWindowSettings</span>
+              <span class="tool-tag">getConversionMatchRate</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="color:#e2e8f0;font-weight:600;white-space:nowrap">Deal &amp; Inventory</td>
+            <td style="color:#a0aec0;font-size:0.82rem">PMP deal sync, bid stream, seat IDs</td>
+            <td>
+              <span class="tool-tag">getDealStatus</span>
+              <span class="tool-tag">getDealBidStream</span>
+              <span class="tool-tag">getSeatMapping</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="color:#e2e8f0;font-weight:600;white-space:nowrap">Fraud &amp; Brand Safety</td>
+            <td style="color:#a0aec0;font-size:0.82rem">IVT spikes, placement quality, blocklists</td>
+            <td>
+              <span class="tool-tag">getClickLog</span>
+              <span class="tool-tag">getIVTReport</span>
+              <span class="tool-tag">getBrandSafetySettings</span>
+              <span class="tool-tag">getPlacementReport</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="color:#e2e8f0;font-weight:600;white-space:nowrap">Reporting &amp; Discrepancy</td>
+            <td style="color:#a0aec0;font-size:0.82rem">DSP vs GAM gap analysis</td>
+            <td>
+              <span class="tool-tag">getDSPImpressionReport</span>
+              <span class="tool-tag">getGAMReport</span>
+              <span class="tool-tag">getDiscrepancyLog</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>MCP Server Connection</h2>
+    <div class="info-grid">
+      <div class="info-box">
+        <h3>real-python-adtech-mcp-server</h3>
+        <div class="info-row"><span>Transport</span><span class="info-val">SSE (Server-Sent Events)</span></div>
+        <div class="info-row"><span>Port</span><span class="info-val">8085</span></div>
+        <div class="info-row"><span>SSE Endpoint</span><span class="info-val">/sse</span></div>
+        <div class="info-row"><span>Protocol</span><span class="info-val">MCP (FastMCP)</span></div>
+        <div class="info-row"><span>Tools</span><span class="info-val" id="mcp-tools-count">checking...</span></div>
+      </div>
+      <div class="info-box">
+        <h3>crewai-adtech-mcp-client</h3>
+        <div class="info-row"><span>Port</span><span class="info-val">8090</span></div>
+        <div class="info-row"><span>Framework</span><span class="info-val">FastAPI + CrewAI</span></div>
+        <div class="info-row"><span>Agents</span><span class="info-val">7 specialized</span></div>
+        <div class="info-row"><span>Use Cases</span><span class="info-val">7 crews</span></div>
+        <div class="info-row"><span>LLM (dev)</span><span class="info-val">Groq llama-3.3-70b</span></div>
+        <div class="info-row"><span>LLM (prod)</span><span class="info-val">Gemini 2.0 Flash</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- API REFERENCE ───────────────────────────────────────────────────────────── -->
+<div class="page" id="page-api">
+  <div class="card">
+    <h2>API Reference</h2>
+
+    <div class="section-title">Core Endpoints</div>
+    <div style="background:#0d1117;border:1px solid #2d3748;border-radius:8px;overflow:hidden;font-size:0.82rem;margin-bottom:16px">
+      <div style="display:grid;grid-template-columns:120px 1fr 1fr;background:#161b22;padding:8px 14px;font-size:0.72rem;font-weight:700;color:#718096;text-transform:uppercase;gap:8px">
+        <div>Method</div><div>Path</div><div>Description</div>
+      </div>
+      <div style="display:grid;grid-template-columns:120px 1fr 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <span style="background:#1c4532;color:#68d391;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:0.75rem;width:fit-content">POST</span>
+        <code style="color:#b794f4">/api/v1/crew/query</code>
+        <span style="color:#a0aec0">Submit support query — routes to correct crew automatically</span>
+      </div>
+      <div style="display:grid;grid-template-columns:120px 1fr 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <span style="background:#2d4a6e;color:#90cdf4;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:0.75rem;width:fit-content">GET</span>
+        <code style="color:#b794f4">/api/v1/crew/tickets</code>
+        <span style="color:#a0aec0">List all tickets (last 100)</span>
+      </div>
+      <div style="display:grid;grid-template-columns:120px 1fr 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <span style="background:#2d4a6e;color:#90cdf4;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:0.75rem;width:fit-content">GET</span>
+        <code style="color:#b794f4">/api/v1/crew/tickets/{id}</code>
+        <span style="color:#a0aec0">Get single ticket by ID</span>
+      </div>
+      <div style="display:grid;grid-template-columns:120px 1fr 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <span style="background:#2d4a6e;color:#90cdf4;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:0.75rem;width:fit-content">GET</span>
+        <code style="color:#b794f4">/api/v1/crew/health-check</code>
+        <span style="color:#a0aec0">Health check with agent and tool status</span>
+      </div>
+    </div>
+
+    <div class="section-title">POST /api/v1/crew/query — Request</div>
+    <div class="arch-box">{
+  "query":       "Campaign CMP-4491 is not delivering",   <span class="highlight">// required</span>
+  "campaignId":  "CMP-4491",
+  "advertiserId":"ADV-8821",
+  "segmentId":   "SEG-9012",
+  "dealId":      "DEAL-7723",
+  "pixelId":     "PX-5511",
+  "lineItemId":  "LI-3301",
+  "accountTier": "ENTERPRISE"
+}</div>
+
+    <div class="section-title">POST /api/v1/crew/query — Response</div>
+    <div class="arch-box">{
+  "ticketId":      "uuid",
+  "useCase":       "delivery_failure",
+  "useCaseLabel":  "Campaign Not Delivering",
+  "agentsUsed":    ["Triage Specialist", "Campaign Analyst", "Audience & Creative Specialist", "Deal & Inventory Specialist"],
+  "taskOutputs": [
+    { "agent": "Triage Specialist",   "role": "...", "output": "Domain: budget exhaustion..." },
+    { "agent": "Campaign Analyst",    "role": "...", "output": "Status: PAUSED, bid $0.95 < floor $1.20..." },
+    ...
+  ],
+  "answer":  "Synthesized final answer with prioritized fix steps...",
+  "status":  "RESOLVED_BY_CREW"   <span class="highlight">// or ESCALATED</span>
+}</div>
+
+    <div class="section-title">Use Case Classification Keywords</div>
+    <div style="background:#0d1117;border:1px solid #2d3748;border-radius:8px;overflow:hidden;font-size:0.81rem">
+      <div style="display:grid;grid-template-columns:200px 1fr;background:#161b22;padding:8px 14px;font-size:0.72rem;font-weight:700;color:#718096;text-transform:uppercase;gap:8px"><div>Crew Triggered</div><div>Keywords Detected</div></div>
+      <div style="display:grid;grid-template-columns:200px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px"><span class="highlight">delivery_failure</span><span style="color:#a0aec0;font-size:0.78rem">not delivering, zero impressions, paused, no spend</span></div>
+      <div style="display:grid;grid-template-columns:200px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px"><span style="color:#63b3ed">reporting_discrepancy</span><span style="color:#a0aec0;font-size:0.78rem">discrepancy, gap, DSP shows, GAM shows, mismatch</span></div>
+      <div style="display:grid;grid-template-columns:200px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px"><span style="color:#fc8181">ivt_fraud</span><span style="color:#a0aec0;font-size:0.78rem">IVT, fraud, bot traffic, invalid traffic, spike</span></div>
+      <div style="display:grid;grid-template-columns:200px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px"><span style="color:#68d391">pmp_deal</span><span style="color:#a0aec0;font-size:0.78rem">deal, PMP, seat ID, zero bids, bid stream</span></div>
+      <div style="display:grid;grid-template-columns:200px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px"><span style="color:#f6ad55">pixel_attribution</span><span style="color:#a0aec0;font-size:0.78rem">pixel, conversion, attribution, ITP, match rate</span></div>
+      <div style="display:grid;grid-template-columns:200px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px"><span style="color:#7f9cf5">pre_launch_audit</span><span style="color:#a0aec0;font-size:0.78rem">audit, pre-launch, go live, launch checklist</span></div>
+      <div style="display:grid;grid-template-columns:200px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px"><span style="color:#a0aec0">budget_pacing</span><span style="color:#a0aec0;font-size:0.78rem">pacing, overspend, burning, 10am, ASAP, front-loaded</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCENARIOS = {
+  delivery: {
+    query: "Campaign CMP-4491 has zero impressions for the past 6 hours. It was running fine yesterday.",
+    campaign: "CMP-4491", advertiser: "ADV-8821", segment: "", deal: "", pixel: "", lineitem: "", tier: "ENTERPRISE"
+  },
+  discrepancy: {
+    query: "DSP shows 120K impressions for campaign CMP-7712 but GAM shows 84K — that's a 30% gap. Which is correct?",
+    campaign: "CMP-7712", advertiser: "ADV-5533", segment: "", deal: "", pixel: "", lineitem: "LI-3301", tier: "STANDARD"
+  },
+  fraud: {
+    query: "IVT rate jumped from 3% to 18% on Advertiser ADV-789 overnight. Campaigns are still running and burning budget.",
+    campaign: "CMP-9901", advertiser: "ADV-789", segment: "", deal: "", pixel: "", lineitem: "LI-7712", tier: "ENTERPRISE"
+  },
+  deal: {
+    query: "Deal DEAL-9921 has been live for 48 hours with 0 bid requests. Something is wrong with the PMP setup.",
+    campaign: "CMP-5512", advertiser: "ADV-3311", segment: "", deal: "DEAL-9921", pixel: "", lineitem: "", tier: "ENTERPRISE"
+  },
+  pixel: {
+    query: "Conversion tracking dropped 75% after the iOS 17 update. Pixel is still firing but no conversions are being attributed.",
+    campaign: "CMP-8821", advertiser: "ADV-4422", segment: "", deal: "", pixel: "PX-5511", lineitem: "", tier: "STANDARD"
+  },
+  audit: {
+    query: "Please audit campaign CMP-5500 before it goes live tomorrow morning. Need a full pre-launch checklist.",
+    campaign: "CMP-5500", advertiser: "ADV-6600", segment: "SEG-2211", deal: "DEAL-4401", pixel: "PX-7722", lineitem: "LI-5500", tier: "ENTERPRISE"
+  },
+  pacing: {
+    query: "Campaign CMP-3301 is burning 80% of its daily budget by 10am every single day. Budget runs out and we get no afternoon traffic.",
+    campaign: "CMP-3301", advertiser: "ADV-9911", segment: "SEG-4401", deal: "", pixel: "", lineitem: "", tier: "STANDARD"
+  },
+};
+
+const USE_CASE_ICONS = {
+  delivery_failure: "🚫",
+  reporting_discrepancy: "📊",
+  ivt_fraud: "🛡️",
+  pmp_deal: "🤝",
+  pixel_attribution: "🔍",
+  pre_launch_audit: "✅",
+  budget_pacing: "💰",
+};
+
+const USE_CASE_COLORS = {
+  delivery_failure: "#553c9a",
+  reporting_discrepancy: "#2d4a6e",
+  ivt_fraud: "#7b341e",
+  pmp_deal: "#276749",
+  pixel_attribution: "#744210",
+  pre_launch_audit: "#4c51bf",
+  budget_pacing: "#2d3748",
+};
+
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'tickets') loadTickets();
+}
+
+function loadScenario(key) {
+  const s = SCENARIOS[key];
+  if (!s) return;
+  document.getElementById('q-query').value = s.query;
+  document.getElementById('q-campaign').value = s.campaign;
+  document.getElementById('q-advertiser').value = s.advertiser;
+  document.getElementById('q-segment').value = s.segment;
+  document.getElementById('q-deal').value = s.deal;
+  document.getElementById('q-pixel').value = s.pixel;
+  document.getElementById('q-lineitem').value = s.lineitem;
+  document.getElementById('q-tier').value = s.tier;
+}
+
+async function submitQuery() {
+  const query = document.getElementById('q-query').value.trim();
+  if (!query) { alert('Please enter a query.'); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('result').classList.remove('show');
+
+  const loadingMsgs = [
+    'Classifying query domain...',
+    'Selecting the right crew...',
+    'Triage agent searching KB...',
+    'Domain specialists running in parallel...',
+    'Synthesizing findings...',
+  ];
+  let msgIdx = 0;
+  const msgEl = document.getElementById('loading-msg');
+  const msgTimer = setInterval(() => {
+    msgEl.textContent = loadingMsgs[Math.min(++msgIdx, loadingMsgs.length - 1)];
+  }, 3000);
+
+  try {
+    const body = {
+      query,
+      campaignId:   document.getElementById('q-campaign').value.trim() || undefined,
+      advertiserId: document.getElementById('q-advertiser').value.trim() || undefined,
+      segmentId:    document.getElementById('q-segment').value.trim() || undefined,
+      dealId:       document.getElementById('q-deal').value.trim() || undefined,
+      pixelId:      document.getElementById('q-pixel').value.trim() || undefined,
+      lineItemId:   document.getElementById('q-lineitem').value.trim() || undefined,
+      accountTier:  document.getElementById('q-tier').value || undefined,
+    };
+
+    const resp = await fetch('/api/v1/crew/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+
+    clearInterval(msgTimer);
+    document.getElementById('loading').classList.remove('show');
+    renderResult(data);
+    document.getElementById('result').classList.add('show');
+  } catch (err) {
+    clearInterval(msgTimer);
+    document.getElementById('loading').classList.remove('show');
+    alert('Error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderResult(data) {
+  // Crew badge
+  const uc = data.useCase || 'unknown';
+  const color = USE_CASE_COLORS[uc] || '#2d3748';
+  const icon = USE_CASE_ICONS[uc] || '🤖';
+  document.getElementById('crew-badge-wrap').innerHTML = `
+    <div class="crew-badge" style="border-color:${color}">
+      <span class="crew-icon">${icon}</span>
+      <div>
+        <div class="crew-name">${data.useCaseLabel || uc}</div>
+        <div class="crew-sub">Crew selected automatically by query classifier</div>
+      </div>
+    </div>`;
+
+  // Agent pipeline
+  const pipeline = document.getElementById('agent-pipeline');
+  pipeline.innerHTML = '';
+  const outputs = data.taskOutputs || [];
+  if (outputs.length === 0 && data.agentsUsed) {
+    data.agentsUsed.forEach((a, i) => {
+      outputs.push({ agent: a, role: a, output: '' });
+    });
+  }
+  outputs.forEach((task, i) => {
+    const step = document.createElement('div');
+    step.className = 'agent-step';
+    step.innerHTML = `
+      <div class="agent-dot">${i + 1}</div>
+      <div class="agent-content">
+        <div class="agent-role">${task.role || task.agent}</div>
+        <div class="agent-output">${task.output || '(no output captured)'}</div>
+      </div>`;
+    pipeline.appendChild(step);
+  });
+
+  // Status + answer
+  const statusEl = document.getElementById('result-status');
+  statusEl.textContent = data.status || '–';
+  statusEl.className = 'status-pill ' + (data.status || '');
+  document.getElementById('result-ticket').textContent = data.ticketId ? `Ticket: ${data.ticketId}` : '';
+  document.getElementById('result-answer').textContent = data.answer || '(no answer)';
+}
+
+async function loadTickets() {
+  const tbody = document.getElementById('tickets-body');
+  tbody.innerHTML = '<tr><td colspan="6" style="color:#718096;text-align:center;padding:20px">Loading...</td></tr>';
+  try {
+    const resp = await fetch('/api/v1/crew/tickets');
+    const tickets = await resp.json();
+    document.getElementById('ticket-count').textContent = `${tickets.length} ticket${tickets.length !== 1 ? 's' : ''}`;
+
+    if (tickets.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:#718096;text-align:center;padding:20px">No tickets yet</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = tickets.map((t, i) => {
+      const icon = USE_CASE_ICONS[t.useCase] || '🤖';
+      const agents = (t.agentsUsed || []).join(', ');
+      const created = new Date(t.createdAt).toLocaleString();
+      return `
+        <tr class="ticket-row" onclick="toggleTicket(${i})">
+          <td style="font-family:monospace;font-size:0.78rem;color:#b794f4">${t.id.slice(0,8)}…</td>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cbd5e0">${t.query}</td>
+          <td>${icon} <span style="color:#b794f4;font-size:0.8rem">${t.useCase || '–'}</span></td>
+          <td style="font-size:0.77rem;color:#718096;max-width:180px">${agents}</td>
+          <td><span class="status-pill ${t.status}">${t.status}</span></td>
+          <td style="font-size:0.78rem;color:#718096;white-space:nowrap">${created}</td>
+        </tr>
+        <tr class="ticket-expand" id="te-${i}">
+          <td colspan="6">
+            <div style="padding:4px 0 4px 16px;font-size:0.72rem;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.07em">Answer</div>
+            <div class="ticket-answer">${t.answer}</div>
+          </td>
+        </tr>`;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" style="color:#fc8181;text-align:center;padding:20px">Error: ${err.message}</td></tr>`;
+  }
+}
+
+function toggleTicket(i) {
+  const row = document.getElementById('te-' + i);
+  row.classList.toggle('open');
+}
+
+// Health check
+async function checkHealth() {
+  try {
+    const resp = await fetch('/api/v1/crew/health-check');
+    const data = await resp.json();
+    const badge = document.getElementById('health-badge');
+    badge.textContent = data.status === 'UP' ? `UP — ${data.mcpToolsLoaded} tools` : 'DOWN';
+    badge.className = 'badge ' + (data.status === 'UP' ? 'green' : '');
+    const countEl = document.getElementById('mcp-tools-count');
+    if (countEl) countEl.textContent = data.mcpToolsLoaded + ' loaded';
+  } catch {
+    document.getElementById('health-badge').textContent = 'DOWN';
+  }
+}
+
+checkHealth();
+setInterval(checkHealth, 30000);
+
+function toggleUC(id) {
+  const body  = document.getElementById(id + '-body');
+  const arrow = document.getElementById(id + '-arrow');
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  arrow.classList.toggle('open', !isOpen);
+}
+</script>
+</body>
+</html>
