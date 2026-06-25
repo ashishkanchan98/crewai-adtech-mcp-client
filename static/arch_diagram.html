@@ -1,0 +1,2262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CrewAI AdTech MCP — Architecture Diagrams</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* ── tab switcher ── */
+.tab-bar{display:flex;background:#0d1117;border-bottom:2px solid #2d3748;padding:0 24px;position:sticky;top:0;z-index:100}
+.tab-btn{background:none;border:none;color:#718096;padding:14px 22px;cursor:pointer;font-size:0.88rem;font-weight:600;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.tab-btn.active{color:#b794f4;border-bottom-color:#b794f4}
+.tab-btn:hover{color:#e2e8f0}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* ═══════════════════════════════════════════════
+   TAB 1 — DARK DIAGRAM
+═══════════════════════════════════════════════ */
+.dk body,.dk-page{background:#0a0e1a;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;line-height:1.5}
+#tab-dark,#tab-rag,#tab-embed{background:#0a0e1a;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+.dk-page{max-width:1280px;margin:0 auto;padding:28px 20px}
+.dk-hdr{display:flex;align-items:center;gap:14px;margin-bottom:26px;padding-bottom:16px;border-bottom:1px solid #1e2a3a}
+.dk-hdr h1{font-size:1.4rem;font-weight:800;color:#fff}
+.dk-badge{background:#1a3a5c;border:1px solid #2b6cb0;color:#90cdf4;padding:3px 10px;border-radius:12px;font-size:0.7rem;font-weight:600}
+.dk-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.dk-stat{background:#111827;border:1px solid #2d3748;border-radius:8px;padding:10px 14px;text-align:center;flex:1;min-width:80px}
+.dk-stat-v{font-size:1.3rem;font-weight:800;color:#90cdf4}
+.dk-stat-l{font-size:0.62rem;color:#718096;margin-top:2px}
+.dk-card{background:#0d1117;border:1px solid #1e2a3a;border-radius:12px;padding:20px;margin-bottom:16px}
+.dk-card-title{font-size:0.72rem;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px}
+
+/* system flow */
+.dk-flow{display:flex;align-items:center;gap:0;overflow-x:auto;padding-bottom:4px}
+.dk-fb{flex-shrink:0;border:1px solid #2d3748;border-radius:10px;padding:11px 14px;text-align:center;min-width:100px;background:#111827}
+.dk-fb.user{border-color:#276749;background:#0a1a10}
+.dk-fb.api{border-color:#2b6cb0;background:#0a1530}
+.dk-fb.router{border-color:#744210;background:#1a1005}
+.dk-fb.crew{border-color:#553c9a;background:#160d25}
+.dk-fb.mcp{border-color:#702459;background:#1a0815}
+.dk-fb.llm{border-color:#276749;background:#071a0d}
+.dk-fb.db{border-color:#2d6a4f;background:#071510}
+.dk-fbt{font-size:0.7rem;font-weight:700;color:#a0aec0;margin-bottom:2px}
+.dk-fbs{font-size:0.62rem;color:#718096}
+.dk-farr{font-size:1.1rem;color:#4a5568;flex-shrink:0;margin:0 5px}
+.dk-stores{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid #1e2a3a}
+.dk-store-lbl{font-size:0.68rem;color:#718096;align-self:center;margin-right:4px}
+
+/* agent pool */
+.dk-agents{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:9px}
+.dk-ac{border:1px solid #2d3748;border-radius:8px;padding:11px;background:#111827}
+.dk-ac.t{border-color:#2b6cb0;background:#0a1530}
+.dk-ac.c{border-color:#276749;background:#0a1a10}
+.dk-ac.a{border-color:#744210;background:#1a1005}
+.dk-ac.p{border-color:#553c9a;background:#160d25}
+.dk-ac.d{border-color:#2d6a4f;background:#071510}
+.dk-ac.f{border-color:#702459;background:#1a0815}
+.dk-ac.r{border-color:#5a4a00;background:#18150a}
+.dk-ac-role{font-size:0.7rem;font-weight:700;margin-bottom:3px}
+.dk-ac-desc{font-size:0.63rem;color:#718096;line-height:1.4}
+.dk-ac-tools{margin-top:5px;font-size:0.6rem;color:#4a5568;font-style:italic}
+
+/* use case grid */
+.dk-uc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:860px){.dk-uc-grid{grid-template-columns:1fr}}
+.dk-uc{background:#111827;border:1px solid #2d3748;border-radius:10px;padding:13px}
+.dk-uc-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.dk-uc-num{width:21px;height:21px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;flex-shrink:0}
+.dk-uc-name{font-size:0.8rem;font-weight:700;color:#e2e8f0;flex:1}
+.dk-mode-s{font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:10px;background:#1a3a2a;color:#68d391;border:1px solid #276749}
+.dk-mode-p{font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:10px;background:#1a103a;color:#b794f4;border:1px solid #553c9a}
+.dk-tf{display:flex;flex-direction:column;gap:4px}
+.dk-chip{display:inline-flex;align-items:center;border-radius:5px;padding:3px 8px;font-size:0.62rem;font-weight:600;border:1px solid transparent}
+.dk-ct{background:#0a1530;border-color:#2b6cb0;color:#90cdf4}
+.dk-cc{background:#0a1a10;border-color:#276749;color:#68d391}
+.dk-ca{background:#1a1005;border-color:#744210;color:#f6ad55}
+.dk-cp{background:#160d25;border-color:#553c9a;color:#b794f4}
+.dk-cd{background:#071510;border-color:#2d6a4f;color:#4fd1c5}
+.dk-cf{background:#1a0815;border-color:#702459;color:#fc8181}
+.dk-cr{background:#18150a;border-color:#5a4a00;color:#f6e05e}
+.dk-arr-d{font-size:0.68rem;color:#4a5568;text-align:center}
+.dk-syn{background:#1a2a3a;border:1px solid #2b6cb0;color:#90cdf4;border-radius:5px;padding:4px 10px;font-size:0.63rem;font-weight:700;text-align:center;width:100%}
+.dk-par-grp{background:#0d1020;border:1px dashed #553c9a;border-radius:6px;padding:6px 8px}
+.dk-par-lbl{font-size:0.57rem;color:#805ad5;font-weight:700;margin-bottom:4px}
+.dk-par-tasks{display:flex;flex-wrap:wrap;gap:4px}
+
+/* mcp tools */
+.dk-two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.dk-two-col{grid-template-columns:1fr}}
+.dk-mcp-grp{margin-bottom:10px}
+.dk-mcp-grp-t{font-size:0.66rem;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;padding-bottom:2px;border-bottom:1px solid #1e2a3a}
+.dk-mcp-wrap{display:flex;flex-wrap:wrap;gap:4px}
+.dk-mcp-t{background:#111827;border:1px solid #2d3748;border-radius:4px;padding:2px 7px;font-size:0.63rem;color:#a0aec0}
+.dk-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.dk-leg{display:flex;align-items:center;gap:4px;font-size:0.65rem;color:#a0aec0}
+.dk-leg-dot{width:9px;height:9px;border-radius:50%}
+
+/* routing table */
+.dk-tbl{width:100%;border-collapse:collapse;font-size:0.68rem}
+.dk-tbl th{text-align:left;padding:5px 9px;color:#718096;font-weight:600;border-bottom:1px solid #2d3748}
+.dk-tbl td{padding:5px 9px;border-bottom:1px solid #1e2a3a;color:#a0aec0}
+.dk-tbl td:first-child{font-weight:600}
+.dk-matrix{width:100%;border-collapse:collapse;font-size:0.62rem;margin-top:12px}
+.dk-matrix th{padding:4px 6px;border-bottom:1px solid #2d3748;color:#718096;font-weight:600}
+.dk-matrix td{padding:4px 6px;border-bottom:1px solid #1e2a3a;text-align:center}
+.dk-matrix td:first-child{text-align:left;color:#a0aec0}
+.dk-arr-wrap{display:flex;flex-direction:column;align-items:center;margin:6px 0}
+.dk-arr-line{width:2px;height:12px;background:#2d3748}
+.dk-arr-head{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #2d3748}
+
+/* ═══════════════════════════════════════════════
+   TAB 2 — WHITE / BYTEBYTEГО DIAGRAM
+═══════════════════════════════════════════════ */
+#tab-white{background:#fff;color:#1a1a2e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;min-height:100vh}
+.wt-page{max-width:980px;margin:0 auto;padding:36px 28px 48px}
+.wt-title{font-size:26px;font-weight:800;color:#1a1a2e;line-height:1.2;margin-bottom:4px}
+.wt-subtitle{font-size:12px;color:#888;margin-bottom:28px}
+.wt-brand{float:right;font-size:11px;font-weight:700;color:#555;padding:4px 10px;border:1px solid #ddd;border-radius:6px}
+.wt-panel{border:1px solid #d4d4d4;border-radius:12px;padding:18px 20px;background:#fff;position:relative}
+.wt-pill{display:inline-flex;align-items:center;background:#1a1a2e;color:#fff;font-size:10.5px;font-weight:700;padding:4px 14px;border-radius:20px;margin-bottom:10px;letter-spacing:.04em;text-transform:uppercase}
+.wt-desc{font-size:11px;color:#888;margin-bottom:12px;line-height:1.5}
+.wt-top-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:0}
+.wt-card-row{display:flex;gap:9px;flex-wrap:wrap}
+.wt-mini-card{background:#f7f7f7;border:1px solid #e4e4e4;border-radius:9px;padding:10px 12px;text-align:center;flex:1;min-width:90px}
+.wt-mini-card .mi{font-size:22px;margin-bottom:5px}
+.wt-mini-card .mn{font-size:11px;font-weight:700;color:#1a1a2e;line-height:1.3}
+.wt-mini-card .ms{font-size:10px;color:#888;margin-top:2px;line-height:1.3}
+.wt-mem-cols{display:flex;gap:9px}
+.wt-mem-col{flex:1;background:#f7f7f7;border:1px solid #e4e4e4;border-radius:9px;padding:10px 12px}
+.wt-mem-col-head{font-size:10px;font-weight:700;color:#555;margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em}
+.wt-mem-item{font-size:11px;color:#1a1a2e;font-weight:600;margin-bottom:2px}
+.wt-mem-sub{font-size:10px;color:#888}
+.wt-arr-wrap{display:flex;flex-direction:column;align-items:center;margin:10px 0}
+.wt-arr-line{width:2px;height:14px;background:#bbb}
+.wt-arr-head{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #bbb}
+.wt-tool-grid{display:flex;gap:8px;flex-wrap:wrap}
+.wt-tool-card{background:#f7f7f7;border:1px solid #e4e4e4;border-radius:9px;padding:9px 11px;flex:1;min-width:95px;text-align:center}
+.wt-tool-card .ti{font-size:18px;margin-bottom:4px}
+.wt-tool-card .tc{font-size:11px;font-weight:700;color:#1a1a2e}
+.wt-tool-card .ts{font-size:9.5px;color:#888;margin-top:2px;line-height:1.4}
+.wt-runtime{border:1.5px solid #1a1a2e;border-radius:14px;padding:20px;background:#fff;margin-bottom:0}
+.wt-react-inner{background:#f4f4f6;border:1px solid #ddd;border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.wt-inner-title{font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px}
+.wt-react-row{display:flex;align-items:center;gap:0;position:relative}
+.wt-user-block{width:60px;flex-shrink:0;text-align:center}
+.wt-user-icon{font-size:26px}
+.wt-user-lbl{font-size:9.5px;color:#555;line-height:1.3;margin-top:3px}
+.wt-solid-arr{width:22px;flex-shrink:0;text-align:center;color:#1a1a2e;font-size:15px;font-weight:700}
+.wt-dash-arr{width:22px;flex-shrink:0;text-align:center;font-size:11px;color:#777}
+.wt-step{width:136px;flex-shrink:0;background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:10px;box-shadow:0 2px 8px rgba(0,0,0,.07);position:relative}
+.wt-step-num{position:absolute;top:-9px;left:9px;width:20px;height:20px;background:#1a1a2e;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800}
+.wt-step-icon{font-size:16px;margin-bottom:3px;margin-top:4px}
+.wt-step-title{font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:2px}
+.wt-step-sub{font-size:9.5px;color:#888;line-height:1.35}
+.wt-final-block{width:68px;flex-shrink:0;text-align:center}
+.wt-final-circle{width:48px;height:48px;background:#22c55e;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 4px}
+.wt-final-lbl{font-size:9.5px;color:#555;line-height:1.3}
+.wt-loop-wrap{margin-top:6px;padding-left:82px}
+.wt-agent-inner{background:#f4f4f6;border:1px solid #ddd;border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.wt-agent-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
+.wt-agent-chip{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:7px 5px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.wt-agent-chip .ai{font-size:16px;margin-bottom:3px}
+.wt-agent-chip .an{font-size:9.5px;font-weight:700;color:#1a1a2e;line-height:1.25}
+.wt-agent-chip .as{font-size:8.5px;color:#888;margin-top:2px;line-height:1.2}
+.wt-orch-inner{background:#f4f4f6;border:1px solid #ddd;border-radius:10px;padding:12px 14px}
+.wt-orch-pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.wt-orch-pill{background:#fff;border:1px solid #d0d0d0;border-radius:20px;padding:4px 13px;font-size:10.5px;font-weight:500;color:#1a1a2e}
+.wt-orch-pill.hl{background:#1a1a2e;color:#fff;border-color:#1a1a2e}
+.wt-route-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.wt-route-card{background:#f7f7f7;border:1px solid #e4e4e4;border-radius:8px;padding:8px 10px}
+.wt-route-uc{font-size:10px;font-weight:700;color:#1a1a2e;margin-bottom:3px}
+.wt-route-kw{font-size:9px;color:#888;line-height:1.4}
+.wt-par-chip{display:inline-block;background:#7c3aed;color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:3px}
+.wt-deploy-grid{display:flex;gap:9px;flex-wrap:wrap}
+.wt-deploy-card{background:#f7f7f7;border:1px solid #e4e4e4;border-radius:9px;padding:10px 13px;flex:1;min-width:120px}
+.wt-deploy-card .di{font-size:20px;margin-bottom:4px}
+.wt-deploy-card .dt{font-size:11px;font-weight:700;color:#1a1a2e}
+.wt-deploy-card .ds{font-size:10px;color:#888;margin-top:2px;line-height:1.4}
+.wt-footer{text-align:center;font-size:10.5px;color:#999;margin-top:22px}
+.wt-top-connectors{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:0}
+.wt-top-conn-cell{display:flex;justify-content:center}
+
+/* ── FAQ (white tab) ── */
+.faq-section{margin-top:36px}
+.faq-title{font-size:20px;font-weight:800;color:#1a1a2e;margin-bottom:6px}
+.faq-sub{font-size:11.5px;color:#888;margin-bottom:18px}
+.faq-item{border:1px solid #e4e4e4;border-radius:10px;margin-bottom:8px;overflow:hidden;background:#fff}
+.faq-q{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;user-select:none;gap:12px}
+.faq-q:hover{background:#f9f9f9}
+.faq-qtext{font-size:13px;font-weight:700;color:#1a1a2e;flex:1}
+.faq-cat{font-size:9.5px;font-weight:700;padding:2px 9px;border-radius:12px;flex-shrink:0}
+.cat-react{background:#dbeafe;color:#1d4ed8}
+.cat-agent{background:#d1fae5;color:#065f46}
+.cat-mcp{background:#ede9fe;color:#5b21b6}
+.cat-crew{background:#fef3c7;color:#92400e}
+.cat-deploy{background:#fee2e2;color:#991b1b}
+.cat-design{background:#f3f4f6;color:#374151}
+.cat-llm{background:#fce7f3;color:#9d174d}
+.cat-storage{background:#ccfbf1;color:#0f766e}
+.cat-rag{background:#d1fae5;color:#065f46}
+.cat-dense{background:#dbeafe;color:#1e40af}
+.faq-arrow{font-size:12px;color:#aaa;transition:transform .2s;flex-shrink:0}
+.faq-arrow.open{transform:rotate(180deg)}
+.faq-a{display:none;padding:0 18px 16px;border-top:1px solid #f0f0f0}
+.faq-a.open{display:block}
+.faq-a p{font-size:12.5px;color:#444;line-height:1.7;margin-bottom:8px}
+.faq-a p:last-child{margin-bottom:0}
+.faq-a code{background:#f4f4f6;border:1px solid #e4e4e4;border-radius:4px;padding:1px 6px;font-size:11.5px;color:#1a1a2e;font-family:monospace}
+.faq-a ul{margin:6px 0 6px 18px}
+.faq-a ul li{font-size:12.5px;color:#444;line-height:1.7;margin-bottom:2px}
+.faq-a strong{color:#1a1a2e}
+.faq-highlight{background:#f8faff;border-left:3px solid #2b6cb0;border-radius:0 6px 6px 0;padding:8px 12px;margin-top:6px;font-size:12px;color:#444;line-height:1.6}
+.faq-groups{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.faq-group-btn{background:#f4f4f6;border:1px solid #e4e4e4;border-radius:20px;padding:4px 14px;font-size:11px;cursor:pointer;color:#555;transition:all .15s;font-family:inherit}
+.faq-group-btn.active,.faq-group-btn:hover{background:#1a1a2e;color:#fff;border-color:#1a1a2e}
+</style>
+</head>
+<body>
+
+<!-- ── Tab Bar ── -->
+<div class="tab-bar">
+  <button class="tab-btn" onclick="showTab('dark',this)">📊 Architecture Overview</button>
+  <button class="tab-btn active" onclick="showTab('white',this)">🏗️ Agent Stack Diagram + FAQ</button>
+  <button class="tab-btn" onclick="showTab('rag',this)">🔮 RAG Pipeline</button>
+  <button class="tab-btn" onclick="showTab('embed',this)">🧮 Embeddings</button>
+</div>
+
+<!-- ════════════════════════════════════════════
+  TAB 1 — DARK ARCHITECTURE OVERVIEW
+════════════════════════════════════════════ -->
+<div id="tab-dark" class="tab-content">
+<div class="dk-page">
+
+  <div class="dk-hdr">
+    <div>
+      <h1>CrewAI AdTech MCP Client — Architecture Overview</h1>
+      <div style="color:#718096;font-size:0.78rem;margin-top:2px">Sequential &amp; Parallel Multi-Agent System</div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+      <span class="dk-badge">CrewAI 0.80.0</span>
+      <span class="dk-badge">mcp 1.27.2</span>
+      <span class="dk-badge">FastAPI 0.115</span>
+      <span class="dk-badge">Groq / Vertex AI</span>
+    </div>
+  </div>
+
+  <!-- stats -->
+  <div class="dk-stats">
+    <div class="dk-stat"><div class="dk-stat-v">7</div><div class="dk-stat-l">Agents</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">7</div><div class="dk-stat-l">Use Cases</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">22</div><div class="dk-stat-l">MCP Tools</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">6</div><div class="dk-stat-l">Sequential Crews</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">1</div><div class="dk-stat-l">Parallel Crew</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">8090</div><div class="dk-stat-l">Client Port</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">8085</div><div class="dk-stat-l">MCP Port</div></div>
+  </div>
+
+  <!-- 1. System Flow -->
+  <div class="dk-card">
+    <div class="dk-card-title">1 — End-to-End System Flow</div>
+    <div class="dk-flow">
+      <div class="dk-fb user"><div class="dk-fbt" style="color:#68d391">User / AdOps</div><div class="dk-fbs">support query</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb api"><div class="dk-fbt" style="color:#90cdf4">FastAPI</div><div class="dk-fbs">POST /api/query<br>port 8090</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb router"><div class="dk-fbt" style="color:#f6ad55">Keyword Router</div><div class="dk-fbs">classify_query()<br>score keywords</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb crew"><div class="dk-fbt" style="color:#b794f4">CrewRouter</div><div class="dk-fbs">select crew<br>assemble agents</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb crew" style="border-color:#805ad5"><div class="dk-fbt" style="color:#d6bcfa">crew.kickoff()</div><div class="dk-fbs">ThreadPoolExecutor<br>async wrapper</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb llm"><div class="dk-fbt" style="color:#68d391">LLM</div><div class="dk-fbs">Groq / Vertex<br>temp=0.2</div></div>
+      <div class="dk-farr">+</div>
+      <div class="dk-fb mcp"><div class="dk-fbt" style="color:#fc8181">MCP Server</div><div class="dk-fbs">SSE · port 8085</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb api" style="border-color:#276749"><div class="dk-fbt" style="color:#68d391">JSON Response</div><div class="dk-fbs">task_outputs[]<br>final_answer</div></div>
+    </div>
+    <div class="dk-stores">
+      <div class="dk-store-lbl">Stores:</div>
+      <div class="dk-fb db" style="min-width:auto;padding:7px 12px"><div class="dk-fbt" style="color:#4fd1c5">ChromaDB</div><div class="dk-fbs">KB vector store</div></div>
+      <div class="dk-fb db" style="min-width:auto;padding:7px 12px;border-color:#2b6cb0"><div class="dk-fbt" style="color:#90cdf4">SQLite/asyncpg</div><div class="dk-fbs">query history</div></div>
+      <div class="dk-fb db" style="min-width:auto;padding:7px 12px;border-color:#702459"><div class="dk-fbt" style="color:#fc8181">Secret Manager</div><div class="dk-fbs">GROQ_API_KEY</div></div>
+    </div>
+  </div>
+
+  <!-- 2. Agent Pool -->
+  <div class="dk-card">
+    <div class="dk-card-title">2 — Shared Agent Pool (7 agents, instantiated once at startup)</div>
+    <div class="dk-agents">
+      <div class="dk-ac t"><div class="dk-ac-role" style="color:#90cdf4">Triage Specialist</div><div class="dk-ac-desc">First-line classification. Searches KB, synthesizes final answer.</div><div class="dk-ac-tools">KB search · UC1–UC6</div></div>
+      <div class="dk-ac c"><div class="dk-ac-role" style="color:#68d391">Campaign Analyst</div><div class="dk-ac-desc">Delivery, pacing, bid, budget, frequency issues.</div><div class="dk-ac-tools">getCampaignStatus · getHourlySpendCurve · getPacingSettings · getPerformanceMetrics</div></div>
+      <div class="dk-ac a"><div class="dk-ac-role" style="color:#f6ad55">Audience &amp; Creative</div><div class="dk-ac-desc">Segment size, upload errors, creative approval.</div><div class="dk-ac-tools">getSegmentStatus · getSegmentUploadLog · getCreativeStatus · getCreativeAsset</div></div>
+      <div class="dk-ac p"><div class="dk-ac-role" style="color:#b794f4">Pixel &amp; Attribution</div><div class="dk-ac-desc">Conversion tracking, ITP, match rate drops.</div><div class="dk-ac-tools">getPixelFireLog · getAttributionWindowSettings · getConversionMatchRate</div></div>
+      <div class="dk-ac d"><div class="dk-ac-role" style="color:#4fd1c5">Deal &amp; Inventory</div><div class="dk-ac-desc">PMP zero-bid: deal sync, bid stream, seat ID.</div><div class="dk-ac-tools">getDealStatus · getDealBidStream · getSeatMapping</div></div>
+      <div class="dk-ac f"><div class="dk-ac-role" style="color:#fc8181">Fraud &amp; Brand Safety</div><div class="dk-ac-desc">IVT spikes, placement quality, PAUSE/MONITOR/SAFE.</div><div class="dk-ac-tools">getClickLog · getIVTReport · getBrandSafetySettings · getPlacementReport</div></div>
+      <div class="dk-ac r"><div class="dk-ac-role" style="color:#f6e05e">Reporting Analyst</div><div class="dk-ac-desc">DSP vs GAM impression reconciliation.</div><div class="dk-ac-tools">getDSPImpressionReport · getGAMReport · getDiscrepancyLog</div></div>
+    </div>
+    <div class="dk-legend">
+      <div class="dk-leg"><div class="dk-leg-dot" style="background:#90cdf4"></div>Triage</div>
+      <div class="dk-leg"><div class="dk-leg-dot" style="background:#68d391"></div>Campaign</div>
+      <div class="dk-leg"><div class="dk-leg-dot" style="background:#f6ad55"></div>Audience &amp; Creative</div>
+      <div class="dk-leg"><div class="dk-leg-dot" style="background:#b794f4"></div>Pixel &amp; Attribution</div>
+      <div class="dk-leg"><div class="dk-leg-dot" style="background:#4fd1c5"></div>Deal &amp; Inventory</div>
+      <div class="dk-leg"><div class="dk-leg-dot" style="background:#fc8181"></div>Fraud &amp; Brand Safety</div>
+      <div class="dk-leg"><div class="dk-leg-dot" style="background:#f6e05e"></div>Reporting &amp; Discrepancy</div>
+    </div>
+  </div>
+
+  <!-- 3. Use Case Flows -->
+  <div class="dk-card">
+    <div class="dk-card-title">3 — Use Case Task Flows</div>
+    <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="background:#0a1a1a;border:1px solid #276749;border-radius:8px;padding:9px 12px;flex:1;min-width:220px"><div style="font-size:0.72rem;font-weight:700;color:#68d391;margin-bottom:3px">Sequential — Process.sequential (UC1–5, UC7)</div><div style="font-size:0.68rem;color:#a0aec0">Tasks chain via context=[]. Each reads prior outputs. Final synthesis waits for all.</div></div>
+      <div style="background:#0d0820;border:1px solid #553c9a;border-radius:8px;padding:9px 12px;flex:1;min-width:220px"><div style="font-size:0.72rem;font-weight:700;color:#b794f4;margin-bottom:3px">⚡ Parallel — async_execution=True (UC6 only)</div><div style="font-size:0.68rem;color:#a0aec0">6 audit tasks fire simultaneously. Synthesis waits for all 6 before GO/NO-GO verdict.</div></div>
+    </div>
+    <div class="dk-uc-grid">
+
+      <!-- UC1 -->
+      <div class="dk-uc">
+        <div class="dk-uc-hdr"><div class="dk-uc-num" style="background:#0a1a10;border:1px solid #276749;color:#68d391">1</div><div class="dk-uc-name">Campaign Not Delivering</div><div class="dk-mode-s">Sequential</div></div>
+        <div class="dk-tf">
+          <span class="dk-chip dk-ct">Triage — classify + KB lookup</span>
+          <div class="dk-arr-d">↓ context flows</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
+            <span class="dk-chip dk-cc" style="font-size:0.58rem">Campaign Analyst</span>
+            <span class="dk-chip dk-ca" style="font-size:0.58rem">Audience &amp; Creative</span>
+            <span class="dk-chip dk-cd" style="font-size:0.58rem">Deal &amp; Inventory</span>
+          </div>
+          <div class="dk-arr-d">↓</div>
+          <div class="dk-syn">Triage — Synthesis &amp; Fix Plan</div>
+        </div>
+      </div>
+
+      <!-- UC2 -->
+      <div class="dk-uc">
+        <div class="dk-uc-hdr"><div class="dk-uc-num" style="background:#18150a;border:1px solid #5a4a00;color:#f6e05e">2</div><div class="dk-uc-name">Reporting Discrepancy</div><div class="dk-mode-s">Sequential</div></div>
+        <div class="dk-tf">
+          <span class="dk-chip dk-ct">Triage — KB runbook lookup</span>
+          <div class="dk-arr-d">↓</div>
+          <span class="dk-chip dk-cr">Reporting — DSP + GAM reports · gap %</span>
+          <div class="dk-arr-d">↓</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+            <span class="dk-chip dk-cf" style="font-size:0.58rem">Fraud — IVT check</span>
+            <span class="dk-chip dk-cf" style="font-size:0.58rem">Fraud — brand safety</span>
+          </div>
+          <div class="dk-arr-d">↓</div>
+          <div class="dk-syn">Reporting — Root Cause &amp; % Attribution</div>
+        </div>
+      </div>
+
+      <!-- UC3 -->
+      <div class="dk-uc">
+        <div class="dk-uc-hdr"><div class="dk-uc-num" style="background:#1a0815;border:1px solid #702459;color:#fc8181">3</div><div class="dk-uc-name">IVT / Fraud Spike</div><div class="dk-mode-s">Sequential</div></div>
+        <div class="dk-tf">
+          <span class="dk-chip dk-cf">Fraud — click logs + IVT report</span>
+          <div class="dk-arr-d">↓</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+            <span class="dk-chip dk-cf" style="font-size:0.58rem">Fraud — placement audit</span>
+            <span class="dk-chip dk-cf" style="font-size:0.58rem">Fraud — blocklist check</span>
+          </div>
+          <div class="dk-arr-d">↓</div>
+          <span class="dk-chip dk-cc">Campaign — financial impact</span>
+          <div class="dk-arr-d">↓</div>
+          <div class="dk-syn">Triage — PAUSE_NOW / MONITOR / SAFE</div>
+        </div>
+      </div>
+
+      <!-- UC4 -->
+      <div class="dk-uc">
+        <div class="dk-uc-hdr"><div class="dk-uc-num" style="background:#071510;border:1px solid #2d6a4f;color:#4fd1c5">4</div><div class="dk-uc-name">PMP Deal Zero Bids</div><div class="dk-mode-s">Sequential</div></div>
+        <div class="dk-tf">
+          <span class="dk-chip dk-cd">Deal — sync state · bid stream</span>
+          <div class="dk-arr-d">↓</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
+            <span class="dk-chip dk-cc" style="font-size:0.58rem">Campaign targeting</span>
+            <span class="dk-chip dk-cd" style="font-size:0.58rem">Seat ID mapping</span>
+            <span class="dk-chip dk-ct" style="font-size:0.58rem">Triage KB</span>
+          </div>
+          <div class="dk-arr-d">↓</div>
+          <div class="dk-syn">Deal — Numbered Fix Checklist</div>
+        </div>
+      </div>
+
+      <!-- UC5 -->
+      <div class="dk-uc">
+        <div class="dk-uc-hdr"><div class="dk-uc-num" style="background:#160d25;border:1px solid #553c9a;color:#b794f4">5</div><div class="dk-uc-name">Pixel &amp; Attribution Drop</div><div class="dk-mode-s">Sequential</div></div>
+        <div class="dk-tf">
+          <span class="dk-chip dk-cp">Pixel — fire log · attribution window</span>
+          <div class="dk-arr-d">↓</div>
+          <span class="dk-chip dk-cp">Pixel — match rate · ITP check</span>
+          <div class="dk-arr-d">↓</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+            <span class="dk-chip dk-ct" style="font-size:0.58rem">Triage ITP KB</span>
+            <span class="dk-chip dk-cc" style="font-size:0.58rem">Campaign config</span>
+          </div>
+          <div class="dk-arr-d">↓</div>
+          <div class="dk-syn">Pixel — Tiered Mitigation Plan</div>
+        </div>
+      </div>
+
+      <!-- UC6 Parallel -->
+      <div class="dk-uc" style="border-color:#553c9a">
+        <div class="dk-uc-hdr"><div class="dk-uc-num" style="background:#0d0820;border:1px solid #805ad5;color:#d6bcfa">6</div><div class="dk-uc-name">Pre-Launch Audit</div><div class="dk-mode-p">⚡ Parallel</div></div>
+        <div class="dk-tf">
+          <div class="dk-par-grp">
+            <div class="dk-par-lbl">6 tasks fire simultaneously — async_execution=True</div>
+            <div class="dk-par-tasks">
+              <span class="dk-chip dk-cc" style="font-size:0.58rem">Campaign</span>
+              <span class="dk-chip dk-ca" style="font-size:0.58rem">Audience &amp; Creative</span>
+              <span class="dk-chip dk-cp" style="font-size:0.58rem">Pixel</span>
+              <span class="dk-chip dk-cd" style="font-size:0.58rem">Deal</span>
+              <span class="dk-chip dk-cf" style="font-size:0.58rem">Fraud</span>
+              <span class="dk-chip dk-ct" style="font-size:0.58rem">Triage KB</span>
+            </div>
+          </div>
+          <div class="dk-arr-d">↓ all 6 complete</div>
+          <div class="dk-syn" style="border-color:#805ad5;color:#d6bcfa;background:#0d0820">Triage — ✅/❌/⚠️ GO / NO-GO</div>
+        </div>
+      </div>
+
+      <!-- UC7 -->
+      <div class="dk-uc">
+        <div class="dk-uc-hdr"><div class="dk-uc-num" style="background:#0a1a10;border:1px solid #276749;color:#68d391">7</div><div class="dk-uc-name">Budget Pacing Optimization</div><div class="dk-mode-s">Sequential</div></div>
+        <div class="dk-tf">
+          <span class="dk-chip dk-cc">Campaign — hourly spend curve · pacing</span>
+          <div class="dk-arr-d">↓</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+            <span class="dk-chip dk-ca" style="font-size:0.58rem">Audience size check</span>
+            <span class="dk-chip dk-cc" style="font-size:0.58rem">CTR · ROAS by hour</span>
+          </div>
+          <div class="dk-arr-d">↓</div>
+          <div class="dk-syn">Campaign — Bid/Frequency Recommendations</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 4 + 5: MCP Tools & Router -->
+  <div class="dk-two-col">
+    <div class="dk-card" style="margin-bottom:0">
+      <div class="dk-card-title">4 — MCP Server Tools (22 total · SSE)</div>
+      <div class="dk-mcp-grp"><div class="dk-mcp-grp-t">Campaign (5)</div><div class="dk-mcp-wrap"><span class="dk-mcp-t">getCampaignStatus</span><span class="dk-mcp-t">getFrequencySettings</span><span class="dk-mcp-t">getHourlySpendCurve</span><span class="dk-mcp-t">getPacingSettings</span><span class="dk-mcp-t">getPerformanceMetrics</span></div></div>
+      <div class="dk-mcp-grp"><div class="dk-mcp-grp-t">Segment (2)</div><div class="dk-mcp-wrap"><span class="dk-mcp-t">getSegmentStatus</span><span class="dk-mcp-t">getSegmentUploadLog</span></div></div>
+      <div class="dk-mcp-grp"><div class="dk-mcp-grp-t">Creative (2)</div><div class="dk-mcp-wrap"><span class="dk-mcp-t">getCreativeStatus</span><span class="dk-mcp-t">getCreativeAsset</span></div></div>
+      <div class="dk-mcp-grp"><div class="dk-mcp-grp-t">Pixel / Attribution (3)</div><div class="dk-mcp-wrap"><span class="dk-mcp-t">getPixelFireLog</span><span class="dk-mcp-t">getAttributionWindowSettings</span><span class="dk-mcp-t">getConversionMatchRate</span></div></div>
+      <div class="dk-mcp-grp"><div class="dk-mcp-grp-t">Brand Safety (2)</div><div class="dk-mcp-wrap"><span class="dk-mcp-t">getBrandSafetySettings</span><span class="dk-mcp-t">getPlacementReport</span></div></div>
+      <div class="dk-mcp-grp"><div class="dk-mcp-grp-t">PMP Deals (3)</div><div class="dk-mcp-wrap"><span class="dk-mcp-t">getDealStatus</span><span class="dk-mcp-t">getDealBidStream</span><span class="dk-mcp-t">getSeatMapping</span></div></div>
+      <div class="dk-mcp-grp"><div class="dk-mcp-grp-t">IVT / Fraud (2)</div><div class="dk-mcp-wrap"><span class="dk-mcp-t">getClickLog</span><span class="dk-mcp-t">getIVTReport</span></div></div>
+      <div class="dk-mcp-grp"><div class="dk-mcp-grp-t">Reporting (3)</div><div class="dk-mcp-wrap"><span class="dk-mcp-t">getDSPImpressionReport</span><span class="dk-mcp-t">getGAMReport</span><span class="dk-mcp-t">getDiscrepancyLog</span></div></div>
+      <div style="margin-top:10px;padding-top:8px;border-top:1px solid #1e2a3a;font-size:0.65rem;color:#718096">+ <strong style="color:#a0aec0">KB Tool</strong> — ChromaDB vector search · Triage agent only</div>
+    </div>
+
+    <div class="dk-card" style="margin-bottom:0">
+      <div class="dk-card-title">5 — Keyword Router + Agent × Use Case Matrix</div>
+      <table class="dk-tbl">
+        <thead><tr><th>Use Case</th><th>Sample Keywords</th><th>Agents</th></tr></thead>
+        <tbody>
+          <tr><td style="color:#68d391">delivery_failure</td><td>not delivering · zero impressions · paused</td><td>4</td></tr>
+          <tr><td style="color:#f6e05e">reporting_discrepancy</td><td>discrepancy · mismatch · DSP shows · GAM</td><td>3</td></tr>
+          <tr><td style="color:#fc8181">ivt_fraud</td><td>ivt · fraud · bot traffic · IAS · DV</td><td>3</td></tr>
+          <tr><td style="color:#4fd1c5">pmp_deal</td><td>deal · PMP · zero bids · seat ID</td><td>3</td></tr>
+          <tr><td style="color:#b794f4">pixel_attribution</td><td>pixel · conversion · ITP · match rate</td><td>3</td></tr>
+          <tr><td style="color:#d6bcfa">pre_launch_audit ⚡</td><td>audit · pre-launch · go live · checklist</td><td>6</td></tr>
+          <tr><td style="color:#68d391">budget_pacing</td><td>pacing · overspend · 10am · ASAP</td><td>2</td></tr>
+        </tbody>
+      </table>
+      <table class="dk-matrix">
+        <thead><tr><th style="text-align:left">Agent</th><th style="color:#68d391">UC1</th><th style="color:#f6e05e">UC2</th><th style="color:#fc8181">UC3</th><th style="color:#4fd1c5">UC4</th><th style="color:#b794f4">UC5</th><th style="color:#d6bcfa">UC6</th><th style="color:#68d391">UC7</th></tr></thead>
+        <tbody>
+          <tr><td style="color:#90cdf4">Triage</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td></td></tr>
+          <tr><td style="color:#68d391">Campaign</td><td>✓</td><td></td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+          <tr><td style="color:#f6ad55">Audience &amp; Creative</td><td>✓</td><td></td><td></td><td></td><td></td><td>✓</td><td>✓</td></tr>
+          <tr><td style="color:#b794f4">Pixel &amp; Attribution</td><td></td><td></td><td></td><td></td><td>✓</td><td>✓</td><td></td></tr>
+          <tr><td style="color:#4fd1c5">Deal &amp; Inventory</td><td>✓</td><td></td><td></td><td>✓</td><td></td><td>✓</td><td></td></tr>
+          <tr><td style="color:#fc8181">Fraud &amp; Brand Safety</td><td></td><td>✓</td><td>✓</td><td></td><td></td><td>✓</td><td></td></tr>
+          <tr><td style="color:#f6e05e">Reporting Analyst</td><td></td><td>✓</td><td></td><td></td><td></td><td></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /dk-page -->
+</div><!-- /tab-dark -->
+
+<!-- ════════════════════════════════════════════
+  TAB 2 — WHITE / BYTEBYTEGO AGENT STACK + FAQ
+════════════════════════════════════════════ -->
+<div id="tab-white" class="tab-content active">
+<div class="wt-page">
+
+  <div style="margin-bottom:24px">
+    <span class="wt-brand">crewai-adtech-mcp-client</span>
+    <h1 class="wt-title">CrewAI AdTech MCP — Agent Stack</h1>
+    <p class="wt-subtitle">7 Specialized Agents &nbsp;·&nbsp; 22 MCP Tools via SSE &nbsp;·&nbsp; Sequential &amp; Parallel Flows &nbsp;·&nbsp; ReAct Loop &nbsp;·&nbsp; GCP Cloud Run</p>
+  </div>
+
+  <!-- Top row -->
+  <div class="wt-top-row">
+    <div class="wt-panel">
+      <div class="wt-pill">LLM Provider Layer</div>
+      <p class="wt-desc">Language model backbone for all 7 agents &nbsp;·&nbsp; temperature=0.2 &nbsp;·&nbsp; set via <code style="font-size:10px;background:#f4f4f6;padding:1px 4px;border-radius:3px">LLM_PROVIDER</code> env var</p>
+      <div class="wt-card-row">
+        <div class="wt-mini-card"><div class="mi">🔷</div><div class="mn">Groq</div><div class="ms">LLaMA 3.3 70B<br>(default)</div></div>
+        <div class="wt-mini-card"><div class="mi">🌐</div><div class="mn">Vertex AI</div><div class="ms">Gemini 1.5 Pro<br>(GCP)</div></div>
+        <div class="wt-mini-card"><div class="mi">🔑</div><div class="mn">API Key</div><div class="ms">GROQ_API_KEY<br>Secret Manager</div></div>
+      </div>
+    </div>
+    <div class="wt-panel">
+      <div class="wt-pill">Knowledge &amp; Memory Layer</div>
+      <p class="wt-desc">Context lifecycle: Read (KB Search) + Write (Session History)</p>
+      <div class="wt-mem-cols">
+        <div class="wt-mem-col"><div class="wt-mem-col-head">🔮 Short-Term (Semantic)</div><div class="wt-mem-item">ChromaDB</div><div class="wt-mem-sub">Local vector store<br>sentence-transformers<br>KB runbook search</div></div>
+        <div class="wt-mem-col"><div class="wt-mem-col-head">🗄️ Long-Term (Transactional)</div><div class="wt-mem-item">SQLite / asyncpg</div><div class="wt-mem-sub">Query history<br>Session log<br>aiosqlite async</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wt-top-connectors">
+    <div class="wt-top-conn-cell"><div class="wt-arr-wrap"><div class="wt-arr-line"></div><div class="wt-arr-head"></div></div></div>
+    <div class="wt-top-conn-cell"><div class="wt-arr-wrap"><div class="wt-arr-line"></div><div class="wt-arr-head"></div></div></div>
+  </div>
+
+  <!-- MCP Tool Layer -->
+  <div class="wt-panel" style="margin-bottom:0">
+    <div class="wt-pill">MCP Tool Layer &nbsp;(SSE Transport · 22 Tools · real-python-adtech-mcp-server:8085)</div>
+    <p class="wt-desc">Tools agents call via MCP protocol to interact with the AdTech platform</p>
+    <div class="wt-tool-grid">
+      <div class="wt-tool-card"><div class="ti">📊</div><div class="tc">Campaign</div><div class="ts">Status · Spend Curve<br>Pacing · Frequency (5)</div></div>
+      <div class="wt-tool-card"><div class="ti">👥</div><div class="tc">Segment</div><div class="ts">Status · Upload Log (2)</div></div>
+      <div class="wt-tool-card"><div class="ti">🎨</div><div class="tc">Creative</div><div class="ts">Review Status<br>Asset Metadata (2)</div></div>
+      <div class="wt-tool-card"><div class="ti">📍</div><div class="tc">Pixel / Attribution</div><div class="ts">Fire Log · Match Rate<br>Window Settings (3)</div></div>
+      <div class="wt-tool-card"><div class="ti">🛡️</div><div class="tc">Brand Safety</div><div class="ts">Settings<br>Placement Report (2)</div></div>
+      <div class="wt-tool-card"><div class="ti">🤝</div><div class="tc">PMP Deals</div><div class="ts">Status · Bid Stream<br>Seat Mapping (3)</div></div>
+      <div class="wt-tool-card"><div class="ti">🔍</div><div class="tc">IVT / Fraud</div><div class="ts">Click Log<br>IVT Report (2)</div></div>
+      <div class="wt-tool-card"><div class="ti">📈</div><div class="tc">Reporting</div><div class="ts">DSP · GAM Report<br>Discrepancy Log (3)</div></div>
+    </div>
+  </div>
+
+  <div class="wt-arr-wrap"><div class="wt-arr-line"></div><div class="wt-arr-head"></div></div>
+
+  <!-- Runtime -->
+  <div class="wt-runtime">
+    <div class="wt-pill">CrewAI AdTech Agent Runtime &nbsp;(ReAct Loop + Crew Orchestration)</div>
+    <p class="wt-desc">Keyword router classifies → assembles crew → runs ReAct loop per agent task → synthesizes final answer</p>
+
+    <!-- ReAct Loop -->
+    <div class="wt-react-inner">
+      <div class="wt-inner-title">ReAct Loop (Reasoning Behavior) — each agent executes per task</div>
+      <div class="wt-react-row">
+        <div class="wt-user-block"><div class="wt-user-icon">💬</div><div class="wt-user-lbl">User<br>Query</div></div>
+        <div class="wt-solid-arr">→</div>
+        <div class="wt-step"><div class="wt-step-num">1</div><div class="wt-step-icon">🧠</div><div class="wt-step-title">Thought</div><div class="wt-step-sub">LLM reasons what<br>to do next</div></div>
+        <div class="wt-dash-arr">--&gt;</div>
+        <div class="wt-step"><div class="wt-step-num">2</div><div class="wt-step-icon">⚙️</div><div class="wt-step-title">Action</div><div class="wt-step-sub">Calls MCP tool<br>(e.g. getCampaignStatus)</div></div>
+        <div class="wt-dash-arr">--&gt;</div>
+        <div class="wt-step"><div class="wt-step-num">3</div><div class="wt-step-icon">👁️</div><div class="wt-step-title">Observation</div><div class="wt-step-sub">Tool returns data<br>from AdTech API</div></div>
+        <div class="wt-dash-arr">--&gt;</div>
+        <div class="wt-step"><div class="wt-step-num">4</div><div class="wt-step-icon">🔄</div><div class="wt-step-title">Reflection</div><div class="wt-step-sub">LLM updates context<br>&amp; decides next step</div></div>
+        <div class="wt-solid-arr">→</div>
+        <div class="wt-final-block"><div class="wt-final-circle">✓</div><div class="wt-final-lbl">Task<br>Answer</div></div>
+      </div>
+      <div class="wt-loop-wrap">
+        <svg width="620" height="34" overflow="visible" style="display:block">
+          <defs><marker id="la" markerWidth="7" markerHeight="7" refX="0" refY="3.5" orient="auto"><polygon points="0 0,7 3.5,0 7" fill="#888"/></marker></defs>
+          <path d="M 618,2 L 618,26 L 2,26 L 2,2" stroke="#999" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#la)"/>
+          <text x="310" y="24" text-anchor="middle" font-size="9" fill="#aaa" font-family="sans-serif">loops until task complete (max_iter)</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Agent Pool -->
+    <div class="wt-agent-inner">
+      <div class="wt-inner-title">7 Specialized Agents — Shared Pool (instantiated once · allow_delegation=False)</div>
+      <div class="wt-agent-grid">
+        <div class="wt-agent-chip"><div class="ai">🎯</div><div class="an">Triage Specialist</div><div class="as">KB search · UC1–UC6</div></div>
+        <div class="wt-agent-chip"><div class="ai">📊</div><div class="an">Campaign Analyst</div><div class="as">Delivery, pacing · UC1,3,4,5,6,7</div></div>
+        <div class="wt-agent-chip"><div class="ai">🎨</div><div class="an">Audience &amp; Creative</div><div class="as">Segment, creative · UC1,6,7</div></div>
+        <div class="wt-agent-chip"><div class="ai">📍</div><div class="an">Pixel &amp; Attribution</div><div class="as">ITP, match rate · UC5,6</div></div>
+        <div class="wt-agent-chip"><div class="ai">🤝</div><div class="an">Deal &amp; Inventory</div><div class="as">PMP zero bids · UC1,4,6</div></div>
+        <div class="wt-agent-chip"><div class="ai">🛡️</div><div class="an">Fraud &amp; Brand Safety</div><div class="as">IVT, blocklists · UC2,3,6</div></div>
+        <div class="wt-agent-chip"><div class="ai">📈</div><div class="an">Reporting Analyst</div><div class="as">DSP vs GAM · UC2 only</div></div>
+      </div>
+    </div>
+
+    <!-- Orchestration -->
+    <div class="wt-orch-inner">
+      <div class="wt-inner-title">Crew Orchestration (Execution Management)</div>
+      <div style="font-size:10px;color:#888;margin-bottom:8px">Keyword Router scores all 7 use cases → highest score wins → assembles crew → kicks off via ThreadPoolExecutor</div>
+      <div class="wt-route-grid">
+        <div class="wt-route-card"><div class="wt-route-uc">UC1 · Campaign Not Delivering</div><div class="wt-route-kw">not delivering · zero impressions · paused</div></div>
+        <div class="wt-route-card"><div class="wt-route-uc">UC2 · Reporting Discrepancy</div><div class="wt-route-kw">discrepancy · mismatch · DSP shows · GAM</div></div>
+        <div class="wt-route-card"><div class="wt-route-uc">UC3 · IVT / Fraud Spike</div><div class="wt-route-kw">ivt · fraud · bot traffic · IAS · DoubleVerify</div></div>
+        <div class="wt-route-card"><div class="wt-route-uc">UC4 · PMP Deal Zero Bids</div><div class="wt-route-kw">deal · PMP · zero bids · seat ID · bid stream</div></div>
+        <div class="wt-route-card"><div class="wt-route-uc">UC5 · Pixel Attribution Drop</div><div class="wt-route-kw">pixel · conversion · ITP · match rate · cookie</div></div>
+        <div class="wt-route-card"><div class="wt-route-uc">UC6 · Pre-Launch Audit <span class="wt-par-chip">⚡ PARALLEL</span></div><div class="wt-route-kw">audit · pre-launch · go live · launch checklist</div></div>
+        <div class="wt-route-card"><div class="wt-route-uc">UC7 · Budget Pacing</div><div class="wt-route-kw">pacing · overspend · 10am · ASAP · front-loaded</div></div>
+        <div class="wt-route-card" style="background:#fff9f0;border-color:#f0d9a0"><div class="wt-route-uc" style="color:#92400e">Fallback</div><div class="wt-route-kw">no keyword match → defaults to UC1</div></div>
+      </div>
+      <div class="wt-orch-pills">
+        <div class="wt-orch-pill hl">Process.sequential</div>
+        <div class="wt-orch-pill" style="background:#f3e8ff;border-color:#c4b5fd;color:#5b21b6">async_execution=True (UC6 ⚡)</div>
+        <div class="wt-orch-pill">context=[] task chaining</div>
+        <div class="wt-orch-pill">ThreadPoolExecutor (max_workers=4)</div>
+        <div class="wt-orch-pill">Synthesis Task (final)</div>
+        <div class="wt-orch-pill">allow_delegation=False</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wt-arr-wrap"><div class="wt-arr-line"></div><div class="wt-arr-head"></div></div>
+
+  <!-- Deployment Layer -->
+  <div class="wt-panel">
+    <div class="wt-pill">Transport &amp; Deployment Layer</div>
+    <p class="wt-desc">How the system is served locally and on GCP Cloud Run</p>
+    <div class="wt-deploy-grid">
+      <div class="wt-deploy-card"><div class="di">⚡</div><div class="dt">FastAPI (Client)</div><div class="ds">POST /api/query<br>port 8090<br>uvicorn async</div></div>
+      <div class="wt-deploy-card"><div class="di">🔌</div><div class="dt">MCP SSE Server</div><div class="ds">port 8085<br>FastMCP + SSE<br>K_SERVICE fix</div></div>
+      <div class="wt-deploy-card"><div class="di">☁️</div><div class="dt">GCP Cloud Run</div><div class="ds">asia-south1<br>scales to 0<br>K_SERVICE env</div></div>
+      <div class="wt-deploy-card"><div class="di">📦</div><div class="dt">Artifact Registry</div><div class="ds">adtech-support-poc<br>Cloud Build<br>(no Docker Desktop)</div></div>
+      <div class="wt-deploy-card"><div class="di">🔑</div><div class="dt">Secret Manager</div><div class="ds">GROQ_API_KEY<br>secretAccessor role</div></div>
+      <div class="wt-deploy-card"><div class="di">🌐</div><div class="dt">Static UI</div><div class="ds">/static/index.html<br>FastAPI StaticFiles<br>port 8090</div></div>
+    </div>
+  </div>
+
+  <div class="wt-footer">
+    Each agent loops Thought → Action (MCP Tool) → Observation → Reflection until the task is complete, then passes its output as context to the next task in the crew.<br>
+    UC6 Pre-Launch Audit runs all 6 audit tasks simultaneously using <code style="font-size:10px">async_execution=True</code> before the final GO / NO-GO synthesis.
+  </div>
+
+  <!-- ── FAQ ── -->
+  <div class="faq-section">
+    <h2 class="faq-title">Frequently Asked Questions</h2>
+    <p class="faq-sub">Click any question to expand &nbsp;·&nbsp; ReAct loop · Agents · MCP Tools · Crew &amp; Routing · Deployment · LLM &amp; Models · Storage &amp; DB</p>
+    <div class="faq-groups">
+      <button class="faq-group-btn active" onclick="filterFAQ('all',this)">All</button>
+      <button class="faq-group-btn" onclick="filterFAQ('react',this)">ReAct Loop</button>
+      <button class="faq-group-btn" onclick="filterFAQ('agent',this)">Agents</button>
+      <button class="faq-group-btn" onclick="filterFAQ('mcp',this)">MCP Tools</button>
+      <button class="faq-group-btn" onclick="filterFAQ('crew',this)">Crew &amp; Routing</button>
+      <button class="faq-group-btn" onclick="filterFAQ('deploy',this)">Deployment</button>
+      <button class="faq-group-btn" onclick="filterFAQ('design',this)">Design Decisions</button>
+      <button class="faq-group-btn" onclick="filterFAQ('llm',this)">LLM &amp; Models</button>
+      <button class="faq-group-btn" onclick="filterFAQ('storage',this)">Storage &amp; DB</button>
+      <button class="faq-group-btn" onclick="filterFAQ('rag',this)">RAG</button>
+      <button class="faq-group-btn" onclick="filterFAQ('dense',this)">Dense/Sparse (BM25)</button>
+    </div>
+
+    <div class="faq-item" data-cat="react"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is the ReAct loop and why does every agent use it?</span><span class="faq-cat cat-react">ReAct Loop</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p><strong>ReAct</strong> (Reasoning + Acting) is the cognitive pattern each agent follows. Instead of answering in one shot, the agent alternates between thinking and doing:</p><ul><li><strong>Thought</strong> — LLM reasons: "I need to check the hourly spend curve first."</li><li><strong>Action</strong> — calls an MCP tool: <code>getHourlySpendCurve(campaignId="C123", days=3)</code></li><li><strong>Observation</strong> — reads the tool's JSON return value</li><li><strong>Reflection</strong> — updates understanding: "Budget hit at 10:14am — this is a pacing issue."</li></ul><p>It loops until the task's <code>expected_output</code> is satisfied or <code>max_iter</code> is reached. More reliable than a one-shot prompt because the agent can self-correct mid-task.</p></div></div>
+
+    <div class="faq-item" data-cat="react"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What happens when the ReAct loop hits max_iter?</span><span class="faq-cat cat-react">ReAct Loop</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>CrewAI forces the LLM to produce a final answer with whatever data it has collected — even if incomplete. The downstream synthesis agent sees partial data and signals the limitation in its summary.</p><div class="faq-highlight">Keep <code>max_iter</code> between 5–10. Too low = incomplete analysis. Too high = slow responses and high token cost.</div></div></div>
+
+    <div class="faq-item" data-cat="react"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How does the Thought step know which MCP tool to call?</span><span class="faq-cat cat-react">ReAct Loop</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Each agent gets a filtered tool subset via <code>filter_tools(all_tools, "campaign")</code>. The LLM sees tool names and their docstrings and decides which to call based on the task description. CrewAI wraps each MCP tool as a <code>StructuredTool</code> — the tool schema is injected into the system prompt automatically.</p></div></div>
+
+    <div class="faq-item" data-cat="agent"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Why are all 7 agents instantiated at startup instead of per-request?</span><span class="faq-cat cat-agent">Agents</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Agent instantiation connects to the MCP server via SSE and loads all tool schemas — this adds 2–5 seconds if done per-request. <code>CrewRouter</code> builds the pool once at startup and reuses the same 7 agent objects. Only the <strong>tasks</strong> are created per-request, carrying the specific <code>campaign_id</code> and query context.</p><div class="faq-highlight">The shared pool is safe for concurrent requests because tasks are stateless — agents don't store per-request state.</div></div></div>
+
+    <div class="faq-item" data-cat="agent"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Why is allow_delegation=False on all agents?</span><span class="faq-cat cat-agent">Agents</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p>When <code>allow_delegation=True</code>, agents can hand off subtasks to other agents mid-execution, causing unpredictable tool access and potential infinite delegation loops. Multi-agent collaboration is handled explicitly through the <strong>task context chain</strong> (<code>context=[task1, task2]</code>), which is deterministic and auditable.</p>
+    <pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#1a202c">┌─────────────────────────┬─────────────────────────────────────┬──────────────────────────────────────┐
+│                         │       allow_delegation=False        │        allow_delegation=True         │
+├─────────────────────────┼─────────────────────────────────────┼──────────────────────────────────────┤
+│ Who decides agent order │ You (task definition)               │ LLM (at runtime)                     │
+├─────────────────────────┼─────────────────────────────────────┼──────────────────────────────────────┤
+│ Data flow               │ Explicit context=[]                 │ Dynamic hand-off                     │
+├─────────────────────────┼─────────────────────────────────────┼──────────────────────────────────────┤
+│ Tool isolation          │ Each agent gets filtered tools only │ Any agent can delegate to any agent  │
+├─────────────────────────┼─────────────────────────────────────┼──────────────────────────────────────┤
+│ Circular loop risk      │ None                                │ High                                 │
+├─────────────────────────┼─────────────────────────────────────┼──────────────────────────────────────┤
+│ Token cost              │ Predictable                         │ Unpredictable (can explode)          │
+├─────────────────────────┼─────────────────────────────────────┼──────────────────────────────────────┤
+│ Debugging               │ Easy — fixed execution path         │ Hard — different path every run      │
+├─────────────────────────┼─────────────────────────────────────┼──────────────────────────────────────┤
+│ Best for                │ Multi-agent pipelines               │ Single manager + dynamic specialists │
+└─────────────────────────┴─────────────────────────────────────┴──────────────────────────────────────┘</pre>
+    <div class="faq-highlight">One line: <code>False</code> = <strong>you</strong> orchestrate agents via task design. <code>True</code> = <strong>the LLM</strong> orchestrates agents at runtime.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="agent"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What does the Triage Specialist actually do?</span><span class="faq-cat cat-agent">Agents</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p>Two things other agents cannot: (1) <strong>KB search</strong> — the only agent with ChromaDB tool, retrieves runbooks before domain agents start; (2) <strong>Synthesis</strong> — in most use cases it runs last, receiving all domain findings via <code>context=[]</code> and producing the final prioritized action plan. In UC3, it makes the final PAUSE_NOW / MONITOR / SAFE decision.</p>
+    <p><strong>Difference between classify_query vs searchKnowledgeBase (ChromaDB):</strong></p>
+    <pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#1a202c">classify_query — router.py
+─────────────────────────────────────────────────────
+q = query.lower()
+score = sum(1 for kw in meta["keywords"] if kw in q)
+
+  What  : Dumb string matching — counts keyword hits in the query
+  When  : Before any agent runs — at API request time
+  Purpose: Decides WHICH crew/use-case to run (UC1–UC7)
+  Speed : Microseconds — pure Python, no model, no DB
+  Output: One use-case key ("ivt_fraud", "pmp_deal", etc.)
+
+  "my campaign fraud ivt rate high"
+          ↓
+  counts: ivt_fraud=3, delivery_failure=0, pmp_deal=0 ...
+          ↓
+  returns: "ivt_fraud"   ← UC3 crew runs
+
+searchKnowledgeBase — ChromaDB
+─────────────────────────────────────────────────────
+results = collection.query(query_texts=[query], n_results=3)
+
+  What  : Semantic vector search — finds meaning, not exact words
+  When  : Inside the crew, Triage agent's first ReAct action
+  Purpose: Retrieves relevant runbooks/troubleshooting guides
+  Speed : ~100–300ms — runs embedding model + vector similarity
+  Output: Top 3 matching KB documents with content snippets
+
+  "my campaign fraud ivt rate high"
+          ↓
+  embeds query → [0.23, 0.87, 0.12, ...]  ← vector
+          ↓
+  cosine similarity against all stored doc vectors
+          ↓
+  returns: doc-009-ivt-fraud.json          (score 0.94)
+           doc-010-dsp-gam-discrepancy.json (score 0.61)
+           doc-001-campaign-delivery.json   (score 0.44)</pre>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead>
+        <tr style="background:#2d3748;color:#fff">
+          <th style="padding:7px 12px;text-align:left;border:1px solid #4a5568"></th>
+          <th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">classify_query</th>
+          <th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">searchKnowledgeBase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Layer</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Router (pre-crew)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Agent tool (inside crew)</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Technique</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Keyword count</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Vector similarity (semantic)</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Model</td><td style="padding:7px 12px;border:1px solid #cbd5e0">None</td><td style="padding:7px 12px;border:1px solid #cbd5e0">all-MiniLM-L6-v2</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Speed</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Microseconds</td><td style="padding:7px 12px;border:1px solid #cbd5e0">~100–300ms</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Decides</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Which crew to run</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Which runbook to read</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Understands synonyms</td><td style="padding:7px 12px;border:1px solid #cbd5e0">No</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Yes</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">"IVT spike" vs "bot traffic"</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Different keywords</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Same meaning → same result</td></tr>
+      </tbody>
+    </table>
+    <pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#1a202c">Together in one flow:
+
+User query
+    │
+    ▼
+classify_query()       ← keyword match → selects UC3 (ivt_fraud crew)
+    │
+    ▼
+Triage agent runs
+    │
+    ▼
+searchKnowledgeBase()  ← semantic search → fetches IVT runbook from ChromaDB
+    │
+    ▼
+Domain agents run with runbook context injected</pre>
+    <div class="faq-highlight"><code>classify_query</code> is the <strong>traffic cop</strong> — fast, dumb, routes to the right crew. &nbsp; <code>searchKnowledgeBase</code> is the <strong>librarian</strong> — slow, smart, finds the right document.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="mcp"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is MCP and why use SSE transport instead of HTTP REST?</span><span class="faq-cat cat-mcp">MCP Tools</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p><strong>MCP (Model Context Protocol)</strong> is an open standard for connecting LLM agents to tools. Instead of a custom REST client per tool, CrewAI discovers all 22 tools automatically from the MCP server's manifest. <strong>SSE</strong> provides a persistent connection — tool calls flow over a single long-lived HTTP stream, avoiding per-call TCP handshake overhead.</p></div></div>
+
+    <div class="faq-item" data-cat="mcp"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How does SSE work inside the MCP server — what actually happens on the wire?</span><span class="faq-cat cat-mcp">MCP Tools</span><span class="faq-arrow open">▼</span></div><div class="faq-a open">
+    <p><strong>SSE = Server-Sent Events</strong> — a one-way persistent HTTP connection where the server pushes data to the client over time. The connection stays open for the lifetime of the agent session.</p>
+    <p><strong>How it works in this project:</strong></p>
+    <pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.78rem;line-height:1.7;overflow-x:auto;color:#1a202c">CrewAI Client (port 8090)          MCP Server (port 8085)
+        |                                   |
+        |--- GET /sse (HTTP request) ------>|
+        |                                   |
+        |&lt;-- HTTP 200 (connection stays open, text/event-stream)
+        |                                   |
+        |&lt;-- event: session established ----|
+        |                                   |
+        |--- tool call: getCampaignStatus() |  (POST /messages/)
+        |&lt;-- event: tool result ------------|
+        |                                   |
+        |--- tool call: getHourlySpendCurve()|
+        |&lt;-- event: tool result ------------|
+        |                                   |
+        |  (connection stays open...)       |
+        |--- tool call: getPacingSettings() |
+        |&lt;-- event: tool result ------------|</pre>
+    <p><strong>Why SSE instead of regular HTTP REST:</strong></p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem;margin:10px 0">
+      <thead>
+        <tr style="background:#2d3748;color:#fff">
+          <th style="padding:8px 12px;text-align:left;border:1px solid #4a5568">Regular REST</th>
+          <th style="padding:8px 12px;text-align:left;border:1px solid #4a5568">SSE (MCP)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="background:#edf2f7">
+          <td style="padding:8px 12px;border:1px solid #cbd5e0">New TCP connection per tool call</td>
+          <td style="padding:8px 12px;border:1px solid #cbd5e0">One persistent connection for all tool calls</td>
+        </tr>
+        <tr style="background:#fff">
+          <td style="padding:8px 12px;border:1px solid #cbd5e0">Client pulls data</td>
+          <td style="padding:8px 12px;border:1px solid #cbd5e0">Server pushes data as events</td>
+        </tr>
+        <tr style="background:#edf2f7">
+          <td style="padding:8px 12px;border:1px solid #cbd5e0">~100–300ms overhead per call</td>
+          <td style="padding:8px 12px;border:1px solid #cbd5e0">Connection cost paid once at startup (~5–20ms per call)</td>
+        </tr>
+        <tr style="background:#fff">
+          <td style="padding:8px 12px;border:1px solid #cbd5e0">Stateless</td>
+          <td style="padding:8px 12px;border:1px solid #cbd5e0">Session-aware (session ID tracks conversation)</td>
+        </tr>
+      </tbody>
+    </table>
+    <p><strong>The 421 error on Cloud Run</strong> happened because FastMCP's <code>TransportSecurityMiddleware</code> validates the HTTP <code>Host</code> header on the <code>GET /sse</code> request. Cloud Run's load balancer sends its own hostname (<code>adtech-mcp-server-xxxx.run.app</code>) which wasn't in the allowlist <code>["127.0.0.1:*", "localhost:*"]</code>. Fixed by checking the <code>K_SERVICE</code> env var (always set on Cloud Run) and disabling host validation only in that environment.</p>
+    <div class="faq-highlight">In <code>server.py</code>: <code>mcp.sse_app()</code> creates the full SSE ASGI app with both routes wired up. <code>uvicorn.run(mcp.sse_app(), host="0.0.0.0", port=port)</code> is all that's needed to serve all 22 tools over SSE.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="mcp"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Do the MCP tools return real data or mock data?</span><span class="faq-cat cat-mcp">MCP Tools</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Currently <strong>realistic mock data</strong> — hardcoded JSON mirroring real DSP/SSP API responses. To connect real APIs, replace the function bodies in <code>apis/campaign_api.py</code> etc. The MCP tool interface (<code>@mcp.tool()</code> decorator) stays identical — agents won't know the difference.</p><div class="faq-highlight">Mock-first is intentional for the POC: validate agents against realistic data shapes before integrating production APIs.</div></div></div>
+
+    <div class="faq-item" data-cat="mcp"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Why did the MCP server return HTTP 421 on Cloud Run and how was it fixed?</span><span class="faq-cat cat-mcp">MCP Tools</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>FastMCP auto-enables DNS rebinding protection when starting on <code>127.0.0.1</code>, validating the Host header against <code>["127.0.0.1:*", "localhost:*"]</code>. Cloud Run sends its service URL as the Host header → not in allowlist → <strong>HTTP 421</strong>.</p><p><strong>Fix:</strong> Cloud Run always injects <code>K_SERVICE</code> env var. When set → <code>TransportSecuritySettings(enable_dns_rebinding_protection=False)</code>. When absent (local) → <code>None</code> so FastMCP keeps localhost protection.</p><div class="faq-highlight">Always rebuild (<code>gcloud builds submit</code>) before redeploying — deploy only re-runs the existing image.</div></div></div>
+
+    <div class="faq-item" data-cat="crew"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How does the keyword router classify queries — what if it picks the wrong use case?</span><span class="faq-cat cat-crew">Crew &amp; Routing</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Scores each of 7 use cases by counting keyword hits in the query. Highest score wins. Zero hits → defaults to <code>delivery_failure</code>. Ties → first in dict order.</p><div class="faq-highlight">For production, replace with an LLM intent classifier (one cheap <code>groq/llama-3.1-8b-instant</code> call) that understands full query context — not just keyword counts.</div></div></div>
+
+    <div class="faq-item" data-cat="crew"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is the difference between sequential tasks and UC6's parallel tasks?</span><span class="faq-cat cat-crew">Crew &amp; Routing</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p><strong>Sequential (UC1–5, UC7):</strong> Tasks run one after another, each reading prior outputs via <code>context=[prev_task]</code>. <strong>Parallel (UC6):</strong> All 6 audit tasks have <code>async_execution=True</code> — CrewAI fires them simultaneously. The GO/NO-GO synthesis task waits for all 6. Running in parallel cuts wall-clock time from ~6× to ~1× the slowest single audit.</p><div class="faq-highlight">The overall <code>Process</code> is still <code>sequential</code> — <code>async_execution=True</code> is a per-task flag. The synthesis task always runs last.</div></div></div>
+
+    <div class="faq-item" data-cat="crew"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How does task context chaining work?</span><span class="faq-cat cat-crew">Crew &amp; Routing</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Each <code>Task</code> has <code>context=[]</code> listing earlier tasks whose text outputs are injected into its LLM prompt. The synthesis task in UC1 has <code>context=[triage, campaign_check, audience_check, deal_check]</code> — the LLM sees all 4 agents' findings and produces a ranked action plan citing specific values from each.</p><div class="faq-highlight">Context is append-only — earlier agents cannot see later agents' outputs. Data flows strictly forward.</div></div></div>
+
+    <div class="faq-item" data-cat="deploy"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Why two separate Cloud Run services instead of one?</span><span class="faq-cat cat-deploy">Deployment</span><span class="faq-arrow">▼</span></div><div class="faq-a"><ul><li><strong>Independent scaling</strong> — MCP server scales to 0 when idle; client can stay warm</li><li><strong>Independent deployment</strong> — update MCP tools without redeploying the client</li><li><strong>Protocol separation</strong> — MCP uses SSE (long-lived connections); FastAPI uses standard HTTP. Mixing complicates Cloud Run timeout settings</li><li><strong>Security boundary</strong> — each service gets its own IAM role</li></ul></div></div>
+
+    <div class="faq-item" data-cat="deploy"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How do I stop billing on Cloud Run?</span><span class="faq-cat cat-deploy">Deployment</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Cloud Run charges only when processing requests. With <code>--min-instances=0</code> (default) the service scales to zero when idle — <strong>no charge</strong>.</p><ul><li><strong>Delete:</strong> <code>gcloud run services delete adtech-mcp-server --region asia-south1 --project adtech-support-poc</code></li><li><strong>Or scale to zero:</strong> <code>gcloud run services update adtech-mcp-server --min-instances 0 --region asia-south1</code></li></ul><p>Artifact Registry charges ~$0.10/GB/month for image storage. Delete images with <code>gcloud artifacts docker images delete ...</code> to eliminate storage costs.</p></div></div>
+
+    <div class="faq-item" data-cat="design"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Is keyword routing production-ready?</span><span class="faq-cat cat-design">Design Decisions</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p><strong>Not production-ready.</strong> Breaks when users don't use domain keywords, queries span multiple domains, or new terminology appears. Production alternatives: LLM intent classifier (cheapest), embedding similarity, or multi-crew parallel (most accurate).</p></div></div>
+
+    <div class="faq-item" data-cat="design"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How do I add a new use case (UC8)?</span><span class="faq-cat cat-design">Design Decisions</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>4 file changes only:</p><ul><li><code>router.py</code> — add entry to <code>USE_CASE_META</code> with label + keywords</li><li><code>tasks.py</code> — add <code>uc8_my_use_case_tasks(agents, ctx)</code> returning <code>list[Task]</code></li><li><code>crews.py</code> — add task factory to <code>_TASK_FACTORIES</code> and agent keys to <code>_USE_CASE_AGENTS</code></li><li><code>server.py</code> — add any new <code>@mcp.tool()</code> functions needed</li></ul><p>No changes to FastAPI routes, agent pool, or UI — the system is fully data-driven.</p></div></div>
+
+    <div class="faq-item" data-cat="design"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What happens if the MCP server is unreachable at startup?</span><span class="faq-cat cat-design">Design Decisions</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>FastAPI logs a warning but does <strong>not crash</strong>. <code>mcp_tools</code> is set to an empty list. The <code>CrewRouter</code> initializes with zero MCP tools — agents only have the KB tool. Queries still route and agents still run, but MCP tool calls return "tool not available" errors.</p><div class="faq-highlight">Start MCP server first, then the FastAPI client to avoid this state during development.</div></div></div>
+
+    <!-- ── LLM & Models ── -->
+    <div class="faq-item" data-cat="llm"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Why Groq llama-3.3-70b-versatile instead of GPT-4o or Gemini?</span><span class="faq-cat cat-llm">LLM &amp; Models</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Three reasons: <strong>speed</strong>, <strong>cost</strong>, and <strong>zero lock-in</strong>.</p><ul><li><strong>Speed:</strong> Groq's LPU hardware runs llama-3.3-70b at ~200 tokens/sec vs OpenAI's ~40 tokens/sec. A 7-agent crew generating ~14,000 reasoning tokens completes in ~70s on Groq vs ~5 min on GPT-4o.</li><li><strong>Cost:</strong> Groq llama-3.3-70b ≈ $0.59/1M input tokens vs GPT-4o $2.50/1M — 4× cheaper for the same model size class.</li><li><strong>Zero lock-in:</strong> <code>llm_provider=vertex</code> in <code>.env</code> switches the entire system to Gemini 2.0 Flash on Vertex AI — no code changes, same agent/task definitions, CrewAI's litellm bridge handles the translation.</li></ul><div class="faq-highlight">Groq is the default for dev/POC. Set <code>LLM_PROVIDER=vertex</code> for GCP production — Gemini Flash is multimodal (native image analysis) and has no cold-start latency on Cloud Run since it's in the same GCP project.</div></div></div>
+
+    <div class="faq-item" data-cat="llm"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Why temperature=0.2 — not 0.0 for full determinism or 0.7 for creativity?</span><span class="faq-cat cat-llm">LLM &amp; Models</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Temperature</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Behavior</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Risk for support agents</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">0.0</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Fully deterministic — identical output every run</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Rigidly literal — won't rephrase a failed tool call, causing stuck loops</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0"><strong>0.2 ✓</strong></td><td style="padding:7px 12px;border:1px solid #cbd5e0">Near-deterministic with slight variation</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Consistent diagnoses + can recover from tool errors by rephrasing</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">0.7–1.0</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Creative and varied</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Inconsistent structured output — same input may produce different root cause conclusions</td></tr>
+      </tbody>
+    </table>
+    <div class="faq-highlight">For diagnostic agents, accuracy &gt; creativity. Low temperature ensures "bid below floor" reasoning produces consistent, reproducible diagnoses across identical inputs.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="llm"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How does switching to Vertex AI (Gemini) work — what exactly changes?</span><span class="faq-cat cat-llm">LLM &amp; Models</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Only <code>get_llm()</code> in <code>agents.py</code> changes — agents, tasks, tools, and router are identical. Set two env vars:</p><pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#1a202c">LLM_PROVIDER=vertex
+VERTEX_PROJECT_ID=adtech-support-poc
+# Optional (defaults shown):
+VERTEX_LOCATION=us-central1
+VERTEX_MODEL=gemini-2.0-flash-001</pre>
+<p>Auth uses Application Default Credentials — no API key in code. On Cloud Run, the service account's IAM role (<code>roles/aiplatform.user</code>) is sufficient. Locally: <code>gcloud auth application-default login</code>.</p>
+<p>CrewAI resolves <code>vertex_ai/gemini-2.0-flash-001</code> via <strong>litellm</strong> — the same routing library used by every other provider. No provider-specific code exists in this project.</p>
+<div class="faq-highlight">Gemini 2.0 Flash is multimodal — if you add a <code>getCreativeImageBytes</code> MCP tool, Gemini can analyze the actual banner image, not just its metadata. Groq (text-only) cannot.</div></div></div>
+
+    <!-- ── MCP Tools (extra) ── -->
+    <div class="faq-item" data-cat="mcp"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How does MCPServerAdapter auto-discover all 22 MCP tools at startup?</span><span class="faq-cat cat-mcp">MCP Tools</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Calling <code>adapter.__enter__()</code> in <code>connect_mcp_adapter()</code> triggers the full MCP protocol handshake:</p><pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#1a202c">FastAPI startup
+    │
+    ▼
+connect_mcp_adapter("http://localhost:8085/sse")
+    │
+    ▼
+MCPServerAdapter.__enter__()
+    ├── GET /sse  ──────────────────▶  MCP Server
+    │              persistent SSE connection established
+    │
+    ├── send: {"method": "initialize"}
+    │              ◀── response: server capabilities
+    │
+    ├── send: {"method": "tools/list"}
+    │              ◀── response: [{name, description, inputSchema}, ×22]
+    │
+    └── converts each JSON Schema → CrewAI BaseTool subclass
+            └── returns list[BaseTool]  (22 tools)</pre>
+<p>Each tool's <code>inputSchema</code> is passed to pydantic to auto-generate argument validators. This is why agent tool calls are type-safe — if the LLM passes a string where an integer is expected, pydantic raises a validation error before the MCP call is even sent.</p>
+<div class="faq-highlight"><code>filter_tools(all_tools, "campaign")</code> runs after discovery — it slices the full 22-tool list to the 5 tools assigned to the Campaign Analyst. The LLM only sees those 5 tool names in its system prompt.</div></div></div>
+
+    <div class="faq-item" data-cat="mcp"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What happens when an MCP tool call fails mid-ReAct loop — timeout, wrong args, or server error?</span><span class="faq-cat cat-mcp">MCP Tools</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>CrewAI catches the tool exception and converts it into an <strong>Observation</strong> the LLM can reason about:</p><pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#1a202c">Thought: I need campaign status for C123.
+Action: getCampaignStatus(campaign_id="C123")
+Observation: Error — connection timeout after 30s
+
+Thought: The tool timed out. I'll try getHourlySpendCurve instead
+         to infer delivery from the spend pattern.
+Action: getHourlySpendCurve(campaign_id="C123", days=1)
+Observation: {"hourly": [{"hour": 0, "spend": 0}, ...]}</pre>
+<p>Three failure modes and their outcomes:</p><ul><li><strong>Wrong args (validation error):</strong> pydantic catches it before the MCP call — LLM sees the schema error and retries with corrected arguments</li><li><strong>Timeout / server error:</strong> SSE error event → Observation. LLM pivots to an alternative tool or proceeds with partial data</li><li><strong>Repeated failure:</strong> after <code>max_iter</code> loops, CrewAI forces a final answer — downstream synthesis task sees "campaign status unavailable" and flags it in the report</li></ul>
+<div class="faq-highlight">Set <code>CREW_VERBOSE=true</code> in <code>.env</code> to see every Thought / Action / Observation in FastAPI logs — the single most useful debugging tool for stuck ReAct loops.</div></div></div>
+
+    <!-- ── Crew & Routing (extra) ── -->
+    <div class="faq-item" data-cat="crew"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is classifier_mode=1 and when should you switch from keyword to LLM routing?</span><span class="faq-cat cat-crew">Crew &amp; Routing</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568"></th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">mode=0 (keyword)</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">mode=1 (LLM)</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Model</td><td style="padding:7px 12px;border:1px solid #cbd5e0">None — pure Python</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Groq llama-3.1-8b-instant</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Speed</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Microseconds</td><td style="padding:7px 12px;border:1px solid #cbd5e0">~300–600ms (network round-trip)</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Cost per query</td><td style="padding:7px 12px;border:1px solid #cbd5e0">$0</td><td style="padding:7px 12px;border:1px solid #cbd5e0">~$0.00001 (200 tokens × $0.05/1M)</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">"my ads aren't showing"</td><td style="padding:7px 12px;border:1px solid #cbd5e0">❌ no keyword match → wrong crew</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ routes to delivery_failure</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">"bot clicks from India"</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ "bot" matches ivt_fraud</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ routes to ivt_fraud</td></tr>
+      </tbody>
+    </table>
+    <p>Set <code>CLASSIFIER_MODE=1</code> in <code>.env</code>. The <code>classify_query()</code> function in <code>router.py</code> dispatches to <code>_classify_llm()</code>, which calls Groq with a prompt listing all 7 use-case labels and returns a single JSON key.</p>
+    <div class="faq-highlight">Use mode=0 for dev/testing (no API quota consumed). Switch to mode=1 before going to production — the 8b model adds &lt;1s to total response time while eliminating misclassification on real user language.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="crew"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is Process.hierarchical and when would you use it instead of Process.sequential?</span><span class="faq-cat cat-crew">Crew &amp; Routing</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#1a202c">Process.sequential (this project)      Process.hierarchical
+──────────────────────────────────     ─────────────────────────────────────
+Triage → Campaign → Deal → Synthesis   Manager LLM decides which agents to call
+↑ You define the order in tasks.py     ↑ CrewAI adds a Manager agent automatically
+
+Data flow : explicit context=[] chain  Data flow : manager collects &amp; routes
+Execution : same path every run        Execution : different agent order each run
+Debugging : easy — fixed path          Debugging : hard — path varies per run
+Token cost: 0 extra LLM calls          Token cost: +1 manager call per decision step
+Best for  : known investigation flows  Best for  : open-ended exploration tasks</pre>
+    <p>This project uses <strong>sequential</strong> because support triage has a predictable flow — for delivery failure you always check campaign → audience → deal. The order never changes.</p>
+    <p><strong>When hierarchical makes sense:</strong></p><ul><li>Open-ended queries where you don't know upfront which agents are needed</li><li>Systems with many optional specialists — the manager picks only the relevant 3 of 10</li><li>When agent selection itself requires domain reasoning ("which data source should I check first?")</li></ul>
+    <div class="faq-highlight">Hierarchical requires a <code>manager_llm</code> parameter on the <code>Crew</code> object. The task <code>context=[]</code> chain would need to be removed — the manager controls data flow instead of you.</div>
+    </div></div>
+
+    <!-- ── Storage & DB ── -->
+    <div class="faq-item" data-cat="storage"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Why SQLite + aiosqlite for ticket tracking instead of PostgreSQL?</span><span class="faq-cat cat-storage">Storage &amp; DB</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Two constraints drove this: <strong>zero infrastructure overhead</strong> for a POC, and <strong>async compatibility</strong> with FastAPI.</p><ul><li><strong>SQLite:</strong> runs in-process, no Cloud SQL instance (~$0.10/hr savings for a POC). The entire ticket store is a single file — <code>crew_tickets.db</code> — trivial to inspect with any SQLite browser.</li><li><strong>aiosqlite:</strong> wraps SQLite with Python's <code>async/await</code>. Without it, a synchronous SQLite write blocks FastAPI's event loop for the duration of the disk write — degrading all concurrent request handling.</li></ul>
+<p><strong>Known limitation:</strong> SQLite uses file-level locking. Under multiple Cloud Run instances, concurrent writes conflict. Avoided in the POC with <code>--max-instances=1</code>.</p>
+<p><strong>Production migration — one line in <code>config.py</code>:</strong></p><pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#1a202c"># POC
+database_url = "sqlite+aiosqlite:///./crew_tickets.db"
+
+# Production (Cloud SQL PostgreSQL)
+database_url = "postgresql+asyncpg://user:pass@/db?host=/cloudsql/project:region:instance"</pre>
+<p>SQLAlchemy ORM models in <code>app/db/</code> are driver-agnostic — no model changes, just the URL and the <code>asyncpg</code> package.</p>
+<div class="faq-highlight"><code>crew_tickets.db</code> stores: query text, campaign_id, routed use-case, execution status, LLM answer, and timestamps — a full audit trail of every support query the system has handled.</div></div></div>
+
+    <div class="faq-item" data-cat="storage"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How does ChromaDB persist embeddings between restarts — what happens on first boot?</span><span class="faq-cat cat-storage">Storage &amp; DB</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#1a202c">First boot  (chroma_db/ does not exist yet):
+  _get_chroma_collection()
+    ├── PersistentClient(path="./chroma_db")  ← creates SQLite files on disk
+    ├── collection.count() == 0  →  True
+    └── _seed_chroma()
+            ├── reads all *.json from kb-docs/  (~10–15 documents)
+            ├── embeds each doc via all-MiniLM-L6-v2  (runs locally, no API call)
+            └── collection.add(ids, documents, metadatas)  ← ~2–3s one-time cost
+
+Subsequent starts  (chroma_db/ already exists):
+  _get_chroma_collection()
+    ├── PersistentClient loads existing vectors from disk
+    ├── collection.count() &gt; 0  →  seeding skipped
+    └── returns in &lt;100ms</pre>
+    <p><strong>Cloud Run caveat:</strong> the container filesystem is ephemeral — cleared on every new container instance (deploy, scale-up, crash restart). KB re-seeds from <code>kb-docs/</code> on each cold start.</p><ul><li><strong>Option A:</strong> mount a GCS FUSE bucket at <code>./chroma_db</code> — vectors persist across container restarts</li><li><strong>Option B:</strong> set <code>KB_PROVIDER=gcp</code> for Vertex AI Search — fully managed, no disk, no cold-start seeding</li></ul>
+    <div class="faq-highlight">The module-level <code>_chroma_collection</code> singleton initializes once per process. 100 concurrent requests share the same ChromaDB handle — no per-request reconnection cost.</div>
+    </div></div>
+
+    <!-- ── Design Decisions (extra) ── -->
+    <div class="faq-item" data-cat="design"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How would you scale this from POC to handle 100 concurrent support queries in production?</span><span class="faq-cat cat-design">Design Decisions</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Five changes across the stack — in order of impact:</p>
+    <ol style="margin:6px 0 6px 18px">
+      <li style="font-size:12.5px;color:#444;line-height:1.7;margin-bottom:6px"><strong>MCP connection pool:</strong> current MCPServerAdapter holds one SSE connection — all tool calls queue serially under concurrency. Replace with a pool of N adapters, or switch MCP transport to <code>streamable-http</code> (stateless per-call, scales horizontally, no persistent connection to manage).</li>
+      <li style="font-size:12.5px;color:#444;line-height:1.7;margin-bottom:6px"><strong>DB:</strong> swap <code>sqlite+aiosqlite</code> for <code>postgresql+asyncpg</code> (Cloud SQL). One line in <code>config.py</code> — SQLAlchemy models unchanged.</li>
+      <li style="font-size:12.5px;color:#444;line-height:1.7;margin-bottom:6px"><strong>KB:</strong> set <code>KB_PROVIDER=gcp</code> for Vertex AI Search — fully managed, handles concurrent queries, no cold-start re-seeding on Cloud Run scale-up.</li>
+      <li style="font-size:12.5px;color:#444;line-height:1.7;margin-bottom:6px"><strong>LLM rate limits:</strong> Groq free tier = 30 RPM. At 100 concurrent queries, upgrade to a paid Groq tier or switch <code>LLM_PROVIDER=vertex</code> (Gemini Flash has no RPM cap in the same GCP project). Enable <code>classifier_mode=1</code> and budget for the extra LLM call per query.</li>
+      <li style="font-size:12.5px;color:#444;line-height:1.7;margin-bottom:6px"><strong>Cloud Run:</strong> <code>--max-instances=10 --concurrency=10</code>. Each instance holds its own 7-agent pool (already stateless). Add <code>--cpu=2 --memory=2Gi</code> — the litellm serialization step is CPU-bound.</li>
+    </ol>
+    <div class="faq-highlight">Agents are already stateless — only tasks carry per-request data. Steps 2–5 are configuration changes. Step 1 (MCP pooling) is the only code change needed for production scale.</div>
+    </div></div>
+
+    <!-- ── RAG ── -->
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is RAG and how is it implemented in this project?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p><strong>RAG (Retrieval-Augmented Generation)</strong> grounds LLM responses in factual documents rather than relying solely on model training data. Instead of trusting the LLM to recall troubleshooting guides from memory, the agent searches a vector database and injects the relevant runbook as context into the prompt.</p><p>In this project, RAG is implemented as a <strong>CrewAI tool</strong> (<code>KBSearchTool</code>) rather than a middleware layer. The Triage agent calls <code>searchKnowledgeBase()</code> as its first ReAct action, retrieves the top 3 matching runbooks from ChromaDB, then uses that content to inform its analysis and the downstream agents' context.</p><div class="faq-highlight">Tool-wrapped RAG is a key design choice: the agent autonomously decides <em>when</em> to search (based on task description), not on every request unconditionally. This avoids irrelevant KB results in use cases like UC3 (IVT/Fraud) where the Triage agent is not in the task chain.</div></div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Why all-MiniLM-L6-v2 — and why a local embedding model at all?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Model</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Dims</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Size</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Speed</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Notes</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0"><strong>all-MiniLM-L6-v2 ✓</strong></td><td style="padding:7px 12px;border:1px solid #cbd5e0">384</td><td style="padding:7px 12px;border:1px solid #cbd5e0">~80MB</td><td style="padding:7px 12px;border:1px solid #cbd5e0">~50–100ms</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Local, no API key, good semantic quality for English tech docs</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">text-embedding-3-small</td><td style="padding:7px 12px;border:1px solid #cbd5e0">1536</td><td style="padding:7px 12px;border:1px solid #cbd5e0">API call</td><td style="padding:7px 12px;border:1px solid #cbd5e0">+100–300ms</td><td style="padding:7px 12px;border:1px solid #cbd5e0">OpenAI — higher quality, costs $0.02/1M tokens, needs API key</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">all-mpnet-base-v2</td><td style="padding:7px 12px;border:1px solid #cbd5e0">768</td><td style="padding:7px 12px;border:1px solid #cbd5e0">~420MB</td><td style="padding:7px 12px;border:1px solid #cbd5e0">~200ms</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Better quality than MiniLM, 5× larger, slower cold start on Cloud Run</td></tr>
+      </tbody>
+    </table>
+    <p>For a KB of ~10–15 AdTech runbooks, MiniLM achieves near-perfect recall — the vocabulary gap between "ITP pixel attribution" and "iOS cookie tracking" is bridged without a heavyweight model. Local embedding avoids network latency, API quotas, and secrets management for every KB query.</p>
+    <div class="faq-highlight">On Cloud Run, local model load adds ~3–5s on the first request (cold start). Mitigate by calling a dummy KB search during FastAPI <code>lifespan</code> startup to force model load before user traffic arrives.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Why no document chunking — each JSON file is one document?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Chunking is useful when documents are long (1000+ tokens) and a single paragraph is the correct retrieval unit. AdTech runbooks in this KB are short-form troubleshooting guides — each JSON file is already a self-contained article. Splitting them would break context (step 3 references step 1) and hurt relevance.</p><ul><li><strong>When chunking is NOT needed:</strong> short structured documents, each covering one topic — like these runbooks</li><li><strong>When chunking IS needed:</strong> PDFs, long wikis, multi-section manuals — chunk at paragraph/section boundary, not fixed token count</li></ul><div class="faq-highlight">If you add long-form documents (e.g. IAB standards PDF), add a <code>chunk_documents()</code> step in <code>_seed_chroma()</code> using <code>RecursiveCharacterTextSplitter</code> before calling <code>collection.add()</code>.</div></div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How does RAG context flow from the KB search into the LLM prompt?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>The KB search result is an <strong>Observation</strong> in the Triage agent's ReAct loop. CrewAI automatically appends it to the conversation history. When the Triage agent produces its final output, the KB content is embedded in that text — and that output becomes part of <code>context=[]</code> for downstream agents.</p>
+    <pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#1a202c">Thought: I should search the KB for ITP troubleshooting guides.
+Action:  searchKnowledgeBase(query="ITP pixel attribution iOS")
+Observation: {
+  results: [{
+    title: "ITP Pixel Attribution Runbook",
+    snippet: "pixel-attribution",
+    score: 0.94,
+    link: "https://wiki/itp-guide"
+  }]
+}
+Thought: Found the ITP runbook. Safari ITP 2.x is likely the cause.
+Final Answer: Based on the ITP runbook [score: 0.94], the pixel drop
+              is caused by Safari ITP 2.x expiring cookies after 7 days...</pre>
+    <p>The final answer (containing KB content) is passed via <code>context=[triage_task]</code> to Pixel Attribution and Campaign Analyst agents, grounding their subsequent MCP tool calls in runbook knowledge.</p>
+    <div class="faq-highlight">KB content doesn't go directly into a system prompt — it flows through the ReAct Observation → agent output → task context chain. Downstream agents see it as part of "what the Triage agent found," not as a separate injected document.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Is this RAG implementation production-ready — what are the critical gaps?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>The current implementation is a solid POC but has four critical gaps before it is production-safe:</p><ul><li><strong>No score threshold:</strong> ChromaDB always returns top-3 results, even when the best match has a cosine score of 0.1 (near-random). The LLM receives garbage context and produces confidently wrong answers. Fix: filter out results below 0.5 in <code>_kb_search_local()</code> and return a "no relevant KB article found" signal instead.</li><li><strong>No hybrid search:</strong> Semantic (dense) search alone misses exact product names and acronyms that BM25 (keyword) catches trivially. BM25 alone misses synonyms. Production RAG always merges both via Reciprocal Rank Fusion (RRF).</li><li><strong>ChromaDB is single-node:</strong> It uses a file-locked SQLite backend. Fine for a single Cloud Run instance, but breaks under horizontal scaling. For multi-instance production, replace with Qdrant, pgvector, or just set <code>KB_PROVIDER=gcp</code>.</li><li><strong>No re-ranker:</strong> Cosine similarity is a biased proxy for relevance. A cross-encoder re-ranker compares query and document together (not as independent vectors) and produces much more accurate relevance scores. It is the single highest-impact upgrade for retrieval precision.</li></ul><div class="faq-highlight">Score threshold and re-ranker together take about 1 day to add and eliminate the most dangerous failure mode: the system confidently citing an irrelevant runbook as if it were authoritative.</div></div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is hybrid search and why does pure semantic search fall short?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Hybrid search combines two fundamentally different retrieval signals and merges their ranked lists:</p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568"></th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Dense (Semantic)</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Sparse (BM25)</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Method</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Vector cosine similarity</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Term frequency / inverse doc frequency</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Strength</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Synonyms, paraphrases, conceptual meaning</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Exact match — product names, IDs, acronyms</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Weakness</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Misses "getCampaignStatus", exact error codes</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Misses "bot traffic" → "IVT" synonym</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">AdTech example</td><td style="padding:7px 12px;border:1px solid #cbd5e0">"my ads stopped" → finds delivery runbook ✓</td><td style="padding:7px 12px;border:1px solid #cbd5e0">"deal ID 5813 zero bids" → finds PMP doc ✓</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Reciprocal Rank Fusion (RRF)</strong> merges the two ranked lists without needing to normalize scores (they're on different scales). Each doc's merged score = Σ 1/(k + rank_i) where k=60. The top results of the merged list beat either signal alone.</p><div class="faq-highlight">In this project, add BM25 with the <code>rank_bm25</code> library (pure Python, no new services). Build a BM25 index over the same <code>kb-docs/</code> JSON files, run both searches, merge with RRF, then pass the merged top-10 to the re-ranker.</div></div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is a cross-encoder re-ranker and how is it different from bi-encoder embeddings?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568"></th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Bi-Encoder (current)</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Cross-Encoder (re-ranker)</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">How it works</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Embeds query and doc separately → cosine similarity</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Concatenates query + doc → single relevance score from 0–1</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Speed</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Fast — doc embeddings pre-computed</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Slower — runs inference on every (query, doc) pair</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Accuracy</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Good for retrieval (top-N candidates)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Much higher — sees full interaction between query and doc</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Use at scale</td><td style="padding:7px 12px;border:1px solid #cbd5e0">All N docs in KB</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Only top-20 from bi-encoder (too slow for full KB)</td></tr>
+      </tbody>
+    </table>
+    <p><strong>The standard two-stage pipeline:</strong> bi-encoder retrieves top-20 candidates fast → cross-encoder re-ranks to top-3 accurately. The model <code>cross-encoder/ms-marco-MiniLM-L-6-v2</code> is only ~67MB and is already compatible with <code>sentence-transformers</code> (already in <code>requirements.txt</code>).</p>
+    <div class="faq-highlight">Adding re-ranking to this project requires 10 lines of code in <code>_kb_search_local()</code>: increase <code>n_results</code> to 20, run <code>CrossEncoder.predict([(query, doc)] × 20)</code>, sort by score, return top-3. No new dependencies needed beyond what's already installed.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is RAGAS and how do you evaluate RAG quality without ground truth?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p><strong>RAGAS</strong> (Retrieval-Augmented Generation Assessment) is an evaluation framework that measures RAG quality without requiring human-labeled ground truth for every query. It uses the LLM itself as a judge across four dimensions:</p><ul><li><strong>context_recall (0–1):</strong> Of all the information needed to answer the question, how much is present in the retrieved docs? Low score = KB missing content or retrieval failing to find it.</li><li><strong>faithfulness (0–1):</strong> Does the generated answer only contain claims supported by the retrieved context? Low score = LLM hallucinating beyond the KB.</li><li><strong>answer_relevancy (0–1):</strong> Does the generated answer actually address the question asked? Can be low even with high faithfulness if the retrieved docs were off-topic.</li><li><strong>context_precision (0–1):</strong> Are the retrieved docs actually relevant, or are there noisy irrelevant ones in the top-3? Low score = re-ranker or threshold needed.</li></ul><p><strong>Minimal setup for this project:</strong></p><pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#1a202c">pip install ragas
+
+from ragas import evaluate
+from ragas.metrics import faithfulness, answer_relevancy, context_recall
+
+# Build a 20-query golden set: question + ground_truth_answer
+dataset = [{"question": "Why is my pixel not firing on iOS?",
+            "ground_truth": "Safari ITP 2.x limits cookie lifetime..."}]
+
+results = evaluate(dataset, metrics=[faithfulness, answer_relevancy, context_recall])
+# Returns a DataFrame with per-question scores</pre>
+    <div class="faq-highlight">Target thresholds for production: context_recall &gt; 0.80, faithfulness &gt; 0.85, answer_relevancy &gt; 0.80. Wire RAGAS into CI: fail the deploy if any metric drops below threshold on the golden test set.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is query rewriting and when does it matter for this KB?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p>Users type conversational queries; KB documents use formal technical vocabulary. The embedding model maps them to nearby vectors but the gap still costs recall. Query rewriting closes the vocabulary gap before the embedding step.</p>
+    <pre style="background:#f0f4f8;border:1px solid #cbd5e0;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#1a202c">Without rewriting:
+  User: "my pixel isn't firing on safari since last week"
+  → embedded as-is → misses "ITP", "cookie", "attribution" vocabulary
+
+With rewriting (cheap LLM call):
+  User: "my pixel isn't firing on safari since last week"
+  → LLM rewrites: "Safari ITP intelligent tracking prevention pixel
+                   attribution cookie expiry conversion tracking"
+  → embedded → finds ITP runbook at score 0.94 instead of 0.67</pre>
+    <p><strong>When it matters most in this project:</strong></p><ul><li>UC5 (Pixel Attribution): user language varies widely — "not counting conversions", "iOS tracking broken", "ROAS looks wrong since iOS update"</li><li>UC4 (PMP Zero Bids): user may say "my deal isn't working" vs KB term "PMP deal zero bid stream"</li><li>UC1 (Delivery): "nothing is running" vs "campaign zero impressions delivery failure"</li></ul>
+    <div class="faq-highlight">Use <code>groq/llama-3.1-8b-instant</code> for rewriting — it's ~$0.00001 per call and adds &lt;300ms. The system prompt: "Rewrite this AdTech support query using technical KB vocabulary. Return only the rewritten query, no explanation."</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is the difference between the two SQLite databases in this project?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Database</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Path</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Purpose</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Managed by</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0"><code>chroma_db/chroma.sqlite3</code></td><td style="padding:7px 12px;border:1px solid #cbd5e0">./chroma_db/</td><td style="padding:7px 12px;border:1px solid #cbd5e0"><strong>Vector store</strong> — stores KB document embeddings for semantic search</td><td style="padding:7px 12px;border:1px solid #cbd5e0">ChromaDB internally</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0"><code>crew_tickets.db</code></td><td style="padding:7px 12px;border:1px solid #cbd5e0">./crew_tickets.db</td><td style="padding:7px 12px;border:1px solid #cbd5e0"><strong>Ticket log</strong> — stores query history, use-case routing, agent list, LLM answer</td><td style="padding:7px 12px;border:1px solid #cbd5e0">SQLAlchemy + aiosqlite</td></tr>
+      </tbody>
+    </table>
+    <p>They are completely independent. <code>chroma_db/</code> is the RAG layer — it powers the KB search. <code>crew_tickets.db</code> is the audit layer — it stores what happened after the RAG search was done. Never mix them up when troubleshooting.</p>
+    </div></div>
+
+
+    <div class="faq-item" data-cat="dense"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Dense vs Sparse Vectors (BM25) — Complete Reference</span><span class="faq-cat cat-dense">Dense/Sparse</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+
+    <!-- ── DENSE VECTOR ── -->
+    <p style="font-size:1rem;font-weight:700;color:#1e40af;margin:0 0 10px">Dense Vector</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.8;overflow-x:auto;color:#e2e8f0">Text: "campaign not delivering impressions"
+        ↓
+   Neural Network (SentenceTransformers)
+        ↓
+[0.23, -0.07, 0.91, 0.44, -0.12, 0.67, 0.33, -0.55, ...]
+  ↑      ↑     ↑     ↑
+  ALL dimensions have values
+  384 dimensions total
+  NO zeros — every slot is filled
+
+Dense = small, every slot filled, captures meaning</pre>
+
+    <!-- ── SPARSE VECTOR ── -->
+    <p style="font-size:1rem;font-weight:700;color:#1e40af;margin:18px 0 10px">Sparse Vector</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.8;overflow-x:auto;color:#e2e8f0">Text: "campaign not delivering impressions"
+        ↓
+   TF-IDF / BM25 (count word frequency)
+        ↓
+Vocabulary = every word that exists (50,000 words)
+
+[0, 0, 0, ..., 0.45, 0, 0, ..., 0.62, 0, ..., 0.71, 0, 0, ...]
+                ↑                  ↑                ↑
+            "campaign"         "delivering"    "impressions"
+
+  50,000 dimensions total
+  MOST are zero — only words that appear in text get a value
+
+Sparse = huge, mostly zeros, captures exact words</pre>
+
+    <!-- ── SIDE BY SIDE ── -->
+    <p style="font-size:1rem;font-weight:700;color:#1e40af;margin:18px 0 10px">Side by Side — Simple Example</p>
+    <p style="margin-bottom:8px">Text: <code>"ITP pixel attribution drop"</code></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.8;overflow-x:auto;color:#e2e8f0">DENSE (384-dim):
+┌────────────────────────────────────────┐
+│ dim1: 0.23  dim2: -0.07  dim3: 0.91  │
+│ dim4: 0.44  dim5: -0.12  dim6: 0.67  │
+│ ... all 384 slots filled ...          │
+└────────────────────────────────────────┘
+Small. Every slot has meaning. Captures semantic meaning.
+
+SPARSE (50,000-dim):
+┌────────────────────────────────────────┐
+│ "the"        : 0                       │
+│ "campaign"   : 0                       │
+│ "ITP"        : 0.82  ← only this word │
+│ "pixel"      : 0.71  ← only this word │
+│ "attribution": 0.65  ← only this word │
+│ "drop"       : 0.44  ← only this word │
+│ "pizza"      : 0                       │
+│ ... 49,996 other words = 0 ...        │
+└────────────────────────────────────────┘
+Huge. Almost all zeros. Only present words get a value.</pre>
+
+    <!-- ── ANALOGY ── -->
+    <p style="font-size:1rem;font-weight:700;color:#1e40af;margin:18px 0 10px">Real World Analogy</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.8;overflow-x:auto;color:#e2e8f0">Dense Vector — GPS Coordinates
+
+New York City = (40.7128° N, 74.0060° W)
+
+Just 2 numbers — but they encode everything:
+  → distance to London
+  → which timezone
+  → near the ocean
+  → north of Miami
+
+Dense vector is like GPS:
+  small number of dimensions
+  but each dimension carries rich compressed meaning
+  similar locations = similar coordinates
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Sparse Vector — Inventory Checklist
+
+New York City checklist (10,000 features):
+
+  has_beach         : 0
+  has_subway        : 1  ← present
+  has_eiffel_tower  : 0
+  has_times_square  : 1  ← present
+  has_statue_liberty: 1  ← present
+  has_pyramids      : 0
+  has_big_ben       : 0
+  ... 9,993 other features = 0 ...
+
+Sparse vector is like a checklist:
+  thousands of features, most are 0
+  only what's actually there = 1</pre>
+
+    <!-- ── STRENGTHS ── -->
+    <p style="font-size:1rem;font-weight:700;color:#1e40af;margin:18px 0 10px">What Each is Good At</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.8;overflow-x:auto;color:#e2e8f0">Dense — Finds Meaning / Synonyms
+
+  Query:    "campaign stopped running"
+  Document: "zero impressions on campaign"
+  Dense similarity: 0.89  ✅  ← different words, same meaning
+
+  Dense finds:
+    "ads not showing"   → same as "campaign not delivering"   ✅
+    "bot traffic spike" → same as "IVT fraud increase"        ✅
+    "pixel broken"      → same as "conversion tracking error" ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Sparse — Finds Exact Words / Codes
+
+  Query:    "deal ID D456 seat mapping"
+  Document: "deal D456 seat ID mismatch fix"
+  Sparse similarity: high  ✅  ← exact match on "D456" and "seat"
+
+  Sparse finds:
+    "D456"           → exact match in document  ✅
+    "ITP"            → exact match in document  ✅
+    "error code 421" → exact match              ✅
+
+  Dense would MISS these:
+    "D456" has no semantic meaning — it's just an ID
+    Dense embeds D456 and D789 to the same region → wrong doc returned  ✗</pre>
+
+    <!-- ── FAILURES ── -->
+    <p style="font-size:1rem;font-weight:700;color:#1e40af;margin:18px 0 10px">Where They Fail</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.8;overflow-x:auto;color:#e2e8f0">Dense FAILS when:
+  Query: "deal ID D456 zero bids"
+  May return document about "D789" instead of "D456"
+  because D456 and D789 are semantically identical (both are deal IDs)
+  → Dense cannot distinguish specific IDs, codes, product names
+
+Sparse FAILS when:
+  Query:    "my ads stopped running"
+  Document: "campaign not delivering impressions"
+
+  "ads"     not in document → score 0
+  "stopped" not in document → score 0
+  "running" not in document → score 0
+  → Sparse misses synonyms completely</pre>
+
+    <!-- ── IN THIS PROJECT ── -->
+    <p style="font-size:1rem;font-weight:700;color:#1e40af;margin:18px 0 10px">In This Project — Where Each Appears</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.8;overflow-x:auto;color:#e2e8f0">ChromaDB (adtech_kb)
+  → DENSE only (all-MiniLM-L6-v2)
+  → Good for: "find runbook similar to this query"
+  → Misses: exact deal IDs, campaign codes, error numbers
+
+BM25 (NOT implemented — but should be)
+  → SPARSE
+  → Good for: "find document containing D456 or error code 421"
+  → Misses: synonyms, paraphrases
+
+Keyword Router (router.py)
+  → Basic SPARSE concept (counts keyword hits)
+  → Not a real sparse vector — just Python string matching
+  → Same idea though: exact word matching</pre>
+
+    <!-- ── HYBRID SEARCH ── -->
+    <p style="font-size:1rem;font-weight:700;color:#1e40af;margin:18px 0 10px">Hybrid Search — Use Both Together</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.8;overflow-x:auto;color:#e2e8f0">Query: "deal D456 zero bids seat ID"
+         │
+         ├── Dense search (ChromaDB)
+         │   → understands "zero bids" means PMP problem
+         │   → finds: PMP runbook, deal troubleshooting guide
+         │   → misses: exact "D456" match
+         │
+         ├── Sparse search (BM25)
+         │   → finds exact "D456" and "seat ID"
+         │   → finds: past ticket with D456 specifically
+         │   → misses: synonyms of "zero bids"
+         │
+         └── Merge both with RRF (Reciprocal Rank Fusion)
+             → combines best of both lists
+             → documents in BOTH lists rank highest
+             → best possible retrieval
+
+# Reciprocal Rank Fusion — merge dense and sparse results
+def rrf_merge(dense_results, sparse_results, k=60):
+    scores = {}
+    for rank, doc_id in enumerate(dense_results):
+        scores[doc_id] = scores.get(doc_id, 0) + 1 / (k + rank + 1)
+    for rank, doc_id in enumerate(sparse_results):
+        scores[doc_id] = scores.get(doc_id, 0) + 1 / (k + rank + 1)
+    return sorted(scores, key=scores.get, reverse=True)</pre>
+
+    <!-- ── SPLADE ── -->
+    <p style="font-size:1rem;font-weight:700;color:#1e40af;margin:18px 0 10px">SPLADE — Modern Learned Sparse Vector</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.8;overflow-x:auto;color:#e2e8f0">Old sparse (TF-IDF / BM25):
+  "campaign not delivering"
+  → counts exact words only
+  → "delivering" gets a score, "running" gets 0
+
+New sparse (SPLADE — 2021):
+  "campaign not delivering"
+  → neural network EXPANDS the sparse vector
+  → "delivering" gets 0.71
+  → "running"    gets 0.43  ← learned synonym expansion
+  → "serving"    gets 0.38  ← learned synonym expansion
+  → "impressions" gets 0.29 ← learned co-occurrence
+
+SPLADE = sparse vector with semantic expansion
+Best of both worlds in a single vector
+Used in production at Pinecone and Weaviate</pre>
+
+    <!-- ── SUMMARY TABLE ── -->
+    <p style="font-size:1rem;font-weight:700;color:#1e40af;margin:18px 0 10px">Summary Table</p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:0 0 12px">
+      <thead><tr style="background:#1e3a8a;color:#fff">
+        <th style="padding:8px 12px;text-align:left;border:1px solid #3b82f6"></th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #3b82f6">Dense</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #3b82f6">Sparse (BM25)</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #3b82f6">SPLADE</th>
+      </tr></thead>
+      <tbody>
+        <tr style="background:#eff6ff"><td style="padding:7px 12px;border:1px solid #bfdbfe">Dimensions</td><td style="padding:7px 12px;border:1px solid #bfdbfe">Small (384–1536)</td><td style="padding:7px 12px;border:1px solid #bfdbfe">Huge (50,000+)</td><td style="padding:7px 12px;border:1px solid #bfdbfe">Huge (30,000+)</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #bfdbfe">Zero values</td><td style="padding:7px 12px;border:1px solid #bfdbfe">None — all filled</td><td style="padding:7px 12px;border:1px solid #bfdbfe">Most (99%+)</td><td style="padding:7px 12px;border:1px solid #bfdbfe">Most (95%+)</td></tr>
+        <tr style="background:#eff6ff"><td style="padding:7px 12px;border:1px solid #bfdbfe">Finds synonyms</td><td style="padding:7px 12px;border:1px solid #bfdbfe">✅ Yes</td><td style="padding:7px 12px;border:1px solid #bfdbfe">❌ No</td><td style="padding:7px 12px;border:1px solid #bfdbfe">✅ Yes (learned)</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #bfdbfe">Finds exact IDs</td><td style="padding:7px 12px;border:1px solid #bfdbfe">❌ Poor</td><td style="padding:7px 12px;border:1px solid #bfdbfe">✅ Yes</td><td style="padding:7px 12px;border:1px solid #bfdbfe">✅ Yes</td></tr>
+        <tr style="background:#eff6ff"><td style="padding:7px 12px;border:1px solid #bfdbfe">AdTech codes (D456)</td><td style="padding:7px 12px;border:1px solid #bfdbfe">❌ Treats as random</td><td style="padding:7px 12px;border:1px solid #bfdbfe">✅ Exact match</td><td style="padding:7px 12px;border:1px solid #bfdbfe">✅ Exact match</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #bfdbfe">Created by</td><td style="padding:7px 12px;border:1px solid #bfdbfe">Neural network</td><td style="padding:7px 12px;border:1px solid #bfdbfe">Word frequency count</td><td style="padding:7px 12px;border:1px solid #bfdbfe">Neural network</td></tr>
+        <tr style="background:#eff6ff"><td style="padding:7px 12px;border:1px solid #bfdbfe">Examples</td><td style="padding:7px 12px;border:1px solid #bfdbfe">MiniLM, BGE, OpenAI</td><td style="padding:7px 12px;border:1px solid #bfdbfe">TF-IDF, BM25</td><td style="padding:7px 12px;border:1px solid #bfdbfe">SPLADE, learned sparse</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #bfdbfe">In this project</td><td style="padding:7px 12px;border:1px solid #bfdbfe">✅ ChromaDB</td><td style="padding:7px 12px;border:1px solid #bfdbfe">❌ Not implemented</td><td style="padding:7px 12px;border:1px solid #bfdbfe">❌ Not implemented</td></tr>
+      </tbody>
+    </table>
+    <div class="faq-highlight"><strong>One-line summary:</strong> Dense = compressed meaning → finds "ads not showing" ≈ "campaign not delivering" &nbsp;|&nbsp; Sparse = exact word match → finds "deal D456" and "error code 421" &nbsp;|&nbsp; Hybrid = both together → best retrieval quality for production RAG</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is a dense vector — why are all 384 dimensions filled?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p>A <strong>dense vector</strong> is a compact, fixed-size array where every slot contains a floating-point value — no zeros, no empty positions. A neural network (SentenceTransformers, OpenAI embeddings, BGE) reads the full text and compresses its meaning into a small array. This project uses <code>all-MiniLM-L6-v2</code> which outputs 384 dimensions.</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Text: "campaign not delivering impressions"
+        ↓  Neural Network (SentenceTransformers)
+[0.23, -0.07, 0.91, 0.44, -0.12, 0.67, 0.33, -0.55, ...]
+  ↑       ↑     ↑     ↑     ↑     ↑
+  ALL 384 dimensions have values — NO zeros — every slot is filled
+
+Dense = small array, every slot filled, captures semantic meaning</pre>
+    <p><strong>Analogy — GPS coordinates:</strong> New York City = (40.7128° N, 74.0060° W). Just 2 numbers, yet they encode distance to London, timezone, proximity to ocean, direction from Miami. A dense vector works the same way — a small number of dimensions that each carry compressed, rich meaning. Documents with similar meaning land at nearby coordinates in the vector space, so cosine similarity finds them.</p>
+    <div class="faq-highlight">In this project: <code>collection.query(query_texts=["campaign not delivering"])</code> — ChromaDB embeds the query into a 384-dim dense vector, then finds KB documents whose dense vectors are closest in cosine angle. This is why "my ads stopped running" can retrieve a document titled "Campaign not delivering impressions" even with zero word overlap.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is a sparse vector — why are most of its 50,000 dimensions zero?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p>A <strong>sparse vector</strong> represents text as word frequency counts across the entire vocabulary. If the vocabulary has 50,000 words, the vector has 50,000 dimensions — one per word. Only words that actually appear in the text get a non-zero value; everything else stays at zero. TF-IDF and BM25 are the two classic sparse algorithms.</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Text: "ITP pixel attribution drop"
+        ↓  BM25 (term frequency × inverse document frequency)
+
+Vocabulary = 50,000 words
+
+[0, 0, 0, ..., 0.82, 0, 0, ..., 0.71, 0, ..., 0.65, 0, ..., 0.44, 0, 0, ...]
+                ↑                  ↑                ↑                ↑
+              "ITP"             "pixel"      "attribution"         "drop"
+
+  50,000 dimensions — MOST are zero — only the 4 present words get values
+
+Sparse = huge array, almost all zeros, captures exact word presence</pre>
+    <p><strong>Analogy — inventory checklist:</strong> Describing New York City as a checklist of 10,000 city features: <code>has_subway: 1</code>, <code>has_times_square: 1</code>, <code>has_eiffel_tower: 0</code>, <code>has_pyramids: 0</code>… Most entries are zero; only what's actually present gets a 1. Two cities with matching checklists are similar — regardless of what "meaning" those features carry.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Property</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Dense (all-MiniLM-L6-v2)</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Sparse (BM25)</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Dimensions</td><td style="padding:7px 12px;border:1px solid #cbd5e0">384 (small)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">50,000+ (vocabulary size)</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Zero values</td><td style="padding:7px 12px;border:1px solid #cbd5e0">None — all slots filled</td><td style="padding:7px 12px;border:1px solid #cbd5e0">99%+ are zero</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">What it captures</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Semantic meaning</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Exact word presence</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Created by</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Neural network forward pass</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Term frequency counting</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">In this project</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ ChromaDB uses this</td><td style="padding:7px 12px;border:1px solid #cbd5e0">❌ Not implemented yet</td></tr>
+      </tbody>
+    </table>
+    </div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">When does dense search fail — and when does sparse search fail?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p>Each retrieval method has a blind spot. Understanding both is essential for deciding when hybrid search is worth adding.</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">DENSE FAILS — cannot distinguish specific IDs, codes, product names:
+
+  Query: "deal ID D456 zero bids"
+  Dense finds the meaning of "zero bids" (PMP problem) ✅
+  But returns document about "deal D789" instead of "D456" ✗
+  → Because D456 and D789 are semantically identical (both are deal IDs)
+  → The embedding model compresses them to the same region of vector space
+
+  Same problem with: error code 421, campaign ID 987654, pixel ID PX_3819
+
+
+SPARSE FAILS — cannot find synonyms or paraphrases:
+
+  Query:    "my ads stopped running"
+  Document: "campaign not delivering impressions"
+
+  BM25 scores: "ads" not in doc → 0,  "stopped" not in doc → 0,  "running" not in doc → 0
+  Result: near-zero similarity score despite being the same problem
+
+  Same problem with: "bot traffic" → "IVT", "pixel broken" → "conversion tracking error"
+
+
+DENSE WINS:                          SPARSE WINS:
+  synonyms              ✅             exact IDs (D456, PX_3819)    ✅
+  paraphrases           ✅             error codes (421, 503)        ✅
+  conceptual queries    ✅             product names (IAS, DV360)    ✅
+  different word order  ✅             acronyms (ITP, RTB, PMP)      ✅</pre>
+    <div class="faq-highlight">This is the core reason hybrid search matters for AdTech: support queries mix conceptual language ("ads not showing") with exact identifiers ("deal D456", "ITP cookie drop"). Dense alone handles the concepts but drops the IDs. Sparse alone handles the IDs but drops the synonyms. Only hybrid handles both — and AdTech queries routinely contain both in the same sentence.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is SPLADE — how is it different from BM25 and dense vectors?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p><strong>SPLADE</strong> (Sparse Lexical and Expansion Model, 2021) is a learned sparse vector — it uses a neural network to generate a sparse representation but expands that representation to include semantically related terms that don't appear in the original text. Classic BM25 counts only exact words; SPLADE "guesses" likely synonyms and adds them to the sparse vector with learned weights.</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Classic BM25 (exact word count only):
+  Text: "campaign not delivering"
+  → "delivering" : 0.71  ← present
+  → "running"    : 0      ← NOT present, ignored
+  → "serving"    : 0      ← NOT present, ignored
+
+SPLADE (neural network expands the sparse vector):
+  Text: "campaign not delivering"
+  → "delivering" : 0.71  ← present
+  → "running"    : 0.43  ← learned synonym expansion  ✅
+  → "serving"    : 0.38  ← learned co-occurrence      ✅
+  → "impressions": 0.29  ← learned context            ✅
+  → Still sparse: 99%+ of 30,000 vocabulary slots = 0</pre>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568"></th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Dense</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">BM25 Sparse</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">SPLADE</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Dimensions</td><td style="padding:7px 12px;border:1px solid #cbd5e0">384–1536 (small)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">50,000+ (vocabulary)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">30,000+ (vocabulary)</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Finds synonyms</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ Yes</td><td style="padding:7px 12px;border:1px solid #cbd5e0">❌ No</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ Yes (learned)</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Finds exact IDs</td><td style="padding:7px 12px;border:1px solid #cbd5e0">❌ Poor</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ Yes</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ Yes</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Created by</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Neural network</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Word counting</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Neural network</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Zero values</td><td style="padding:7px 12px;border:1px solid #cbd5e0">None</td><td style="padding:7px 12px;border:1px solid #cbd5e0">99%+</td><td style="padding:7px 12px;border:1px solid #cbd5e0">95%+</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Used in production</td><td style="padding:7px 12px;border:1px solid #cbd5e0">ChromaDB, pgvector</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Elasticsearch, rank_bm25</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Pinecone, Weaviate</td></tr>
+      </tbody>
+    </table>
+    <div class="faq-highlight">For this project: SPLADE is the most advanced option but adds complexity. The practical upgrade path is: dense-only (current) → hybrid dense + BM25 (add <code>rank_bm25</code>) → hybrid dense + SPLADE (if Qdrant or Weaviate is the vector DB). Start with BM25 hybrid — it covers 80% of the gap with minimal code change.</div>
+    </div></div>
+
+  </div><!-- /faq-section -->
+
+</div><!-- /wt-page -->
+</div><!-- /tab-white -->
+
+<!-- ════════════════════════════════════════════
+  TAB 3 — RAG PIPELINE
+════════════════════════════════════════════ -->
+<div id="tab-rag" class="tab-content">
+<div class="dk-page">
+
+  <div class="dk-hdr">
+    <div>
+      <h1>RAG Pipeline — Retrieval-Augmented Generation</h1>
+      <div style="color:#718096;font-size:0.78rem;margin-top:2px">ChromaDB Vector Search · SentenceTransformers · KBSearchTool · CrewAI Agent Tool</div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+      <span class="dk-badge">ChromaDB 0.5.23</span>
+      <span class="dk-badge">all-MiniLM-L6-v2</span>
+      <span class="dk-badge">sentence-transformers 3.3.1</span>
+      <span class="dk-badge">KB Provider: local / gcp</span>
+    </div>
+  </div>
+
+  <!-- stats -->
+  <div class="dk-stats">
+    <div class="dk-stat"><div class="dk-stat-v">2</div><div class="dk-stat-l">KB Providers</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">384</div><div class="dk-stat-l">Embedding Dims</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">3</div><div class="dk-stat-l">Docs per Query</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">5</div><div class="dk-stat-l">Use Cases w/ RAG</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">1</div><div class="dk-stat-l">Agent w/ KB Tool</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">~80MB</div><div class="dk-stat-l">Embed Model Size</div></div>
+  </div>
+
+  <!-- 1. End-to-End RAG Flow -->
+  <div class="dk-card">
+    <div class="dk-card-title">1 — End-to-End RAG Flow</div>
+    <div class="dk-flow" style="flex-wrap:wrap;gap:6px">
+      <div class="dk-fb user"><div class="dk-fbt" style="color:#68d391">User Query</div><div class="dk-fbs">"my pixel isn't<br>firing on iOS"</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb api"><div class="dk-fbt" style="color:#90cdf4">Triage Agent</div><div class="dk-fbs">ReAct loop<br>decides to search KB</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb db" style="border-color:#2d6a4f;background:#071510"><div class="dk-fbt" style="color:#4fd1c5">KBSearchTool</div><div class="dk-fbs">searchKnowledgeBase()<br>tools.py:163</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb crew" style="border-color:#553c9a;background:#160d25"><div class="dk-fbt" style="color:#b794f4">Embed Query</div><div class="dk-fbs">all-MiniLM-L6-v2<br>→ 384-dim vector</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb db"><div class="dk-fbt" style="color:#4fd1c5">ChromaDB</div><div class="dk-fbs">cosine similarity<br>adtech_kb collection</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb db" style="border-color:#276749;background:#0a1a10"><div class="dk-fbt" style="color:#68d391">Top 3 Docs</div><div class="dk-fbs">title · snippet<br>link · score (0–1)</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb llm"><div class="dk-fbt" style="color:#68d391">LLM Prompt</div><div class="dk-fbs">context injected<br>Groq / Vertex AI</div></div>
+      <div class="dk-farr">→</div>
+      <div class="dk-fb api" style="border-color:#276749"><div class="dk-fbt" style="color:#68d391">Grounded Answer</div><div class="dk-fbs">runbook-informed<br>response</div></div>
+    </div>
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid #1e2a3a;font-size:0.68rem;color:#718096">
+      <strong style="color:#a0aec0">Key design:</strong> RAG is a CrewAI <code style="color:#90cdf4">BaseTool</code> — the Triage agent calls it autonomously as an <em>Action</em> in its ReAct loop, not as forced middleware on every request. The KB result becomes an <em>Observation</em> that shapes the agent's final answer and flows forward as task context.
+    </div>
+  </div>
+
+  <!-- 2. Component Breakdown -->
+  <div class="dk-card">
+    <div class="dk-card-title">2 — RAG Component Breakdown</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+
+      <div style="background:#0d1117;border:1px solid #2d6a4f;border-radius:10px;padding:14px">
+        <div style="font-size:0.72rem;font-weight:700;color:#4fd1c5;margin-bottom:8px;text-transform:uppercase;letter-spacing:.07em">Vector Store</div>
+        <div style="font-size:0.78rem;font-weight:700;color:#e2e8f0;margin-bottom:6px">ChromaDB PersistentClient</div>
+        <div style="font-size:0.68rem;color:#718096;line-height:1.7">Path: <code style="color:#90cdf4">./chroma_db</code><br>Collection: <code style="color:#90cdf4">adtech_kb</code><br>Backed by SQLite on disk<br>Singleton: module-level <code style="color:#90cdf4">_chroma_collection</code><br>Auto-seeded on first KB request</div>
+      </div>
+
+      <div style="background:#0d1117;border:1px solid #553c9a;border-radius:10px;padding:14px">
+        <div style="font-size:0.72rem;font-weight:700;color:#b794f4;margin-bottom:8px;text-transform:uppercase;letter-spacing:.07em">Embedding Model</div>
+        <div style="font-size:0.78rem;font-weight:700;color:#e2e8f0;margin-bottom:6px">all-MiniLM-L6-v2</div>
+        <div style="font-size:0.68rem;color:#718096;line-height:1.7">Provider: SentenceTransformers<br>Dimensions: 384<br>Size: ~80MB (runs locally)<br>No API key or network call<br>Speed: ~50–100ms per query</div>
+      </div>
+
+      <div style="background:#0d1117;border:1px solid #744210;border-radius:10px;padding:14px">
+        <div style="font-size:0.72rem;font-weight:700;color:#f6ad55;margin-bottom:8px;text-transform:uppercase;letter-spacing:.07em">Knowledge Documents</div>
+        <div style="font-size:0.78rem;font-weight:700;color:#e2e8f0;margin-bottom:6px">JSON files · kb-docs/</div>
+        <div style="font-size:0.68rem;color:#718096;line-height:1.7">Fields: id, title, content, category, link<br>Pre-chunked at file level<br>Stored as: <code style="color:#90cdf4">"{title}\n\n{content}"</code><br>Metadata preserved: title, category, link<br>Seeded: <code style="color:#90cdf4">_seed_chroma()</code> tools.py:83</div>
+      </div>
+
+      <div style="background:#0d1117;border:1px solid #702459;border-radius:10px;padding:14px">
+        <div style="font-size:0.72rem;font-weight:700;color:#fc8181;margin-bottom:8px;text-transform:uppercase;letter-spacing:.07em">CrewAI Tool Interface</div>
+        <div style="font-size:0.78rem;font-weight:700;color:#e2e8f0;margin-bottom:6px">KBSearchTool (BaseTool)</div>
+        <div style="font-size:0.68rem;color:#718096;line-height:1.7">Name: <code style="color:#90cdf4">searchKnowledgeBase</code><br>Input: query + max_results (default: 3)<br>File: <code style="color:#90cdf4">tools.py:163</code><br>Assigned to: Triage Agent only<br>Factory: <code style="color:#90cdf4">create_kb_tool(settings)</code></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 3. Retrieval Flow Detail -->
+  <div class="dk-card">
+    <div class="dk-card-title">3 — Retrieval Flow Detail (tools.py)</div>
+    <div class="dk-two-col">
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;color:#68d391;margin-bottom:8px">Seeding Flow (first boot)</div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:12px;font-size:0.67rem;line-height:1.7;overflow-x:auto;color:#a0aec0">_get_chroma_collection()         tools.py:63
+  │
+  ├── PersistentClient(path="./chroma_db")
+  ├── collection.count() == 0?
+  │         YES → _seed_chroma()  tools.py:83
+  │                   │
+  │                   ├── read all *.json from kb-docs/
+  │                   ├── build doc="{title}\n\n{content}"
+  │                   ├── embed via MiniLM (local, no API)
+  │                   └── collection.add(ids, docs, meta)
+  │                       (~2–3s one-time cost)
+  │
+  └── returns collection handle
+
+Subsequent calls (chroma_db/ exists):
+  count() > 0 → skip seeding
+  PersistentClient loads from disk → &lt;100ms</pre>
+      </div>
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;color:#90cdf4;margin-bottom:8px">Query Flow (per request)</div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:12px;font-size:0.67rem;line-height:1.7;overflow-x:auto;color:#a0aec0">_kb_search_local(query, n)       tools.py:111
+  │
+  ├── collection.query(
+  │     query_texts=[query],
+  │     n_results=n            ← default: 3
+  │   )
+  │
+  └── returns {
+        query  : "ITP pixel attribution iOS",
+        count  : 3,
+        results: [{
+          id      : "doc-005-itp-pixel",
+          title   : "ITP Pixel Attribution Runbook",
+          snippet : "pixel-attribution",
+          link    : "https://wiki/itp-guide",
+          score   : 0.94  ← 1 - cosine distance
+        }, ...]
+      }
+
+GCP alternative: _kb_search_gcp()   tools.py:133
+  └── Discovery Engine v1 API
+      (KB_PROVIDER=gcp in config)</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Use Cases + 5. Config -->
+  <div class="dk-two-col">
+    <div class="dk-card" style="margin-bottom:0">
+      <div class="dk-card-title">4 — Use Cases with KB Search · tasks.py</div>
+      <table class="dk-tbl">
+        <thead><tr><th>Use Case</th><th>KB Query Intent</th><th>Lines</th></tr></thead>
+        <tbody>
+          <tr><td style="color:#68d391">UC1 — Campaign Delivery</td><td>delivery troubleshooting runbook</td><td>~L20–30</td></tr>
+          <tr><td style="color:#f6e05e">UC2 — Reporting Discrepancy</td><td>discrepancy investigation runbook</td><td>~L92–99</td></tr>
+          <tr><td style="color:#4fd1c5">UC4 — PMP Zero Bids</td><td>PMP deal troubleshooting guide</td><td>~L281–286</td></tr>
+          <tr><td style="color:#b794f4">UC5 — Pixel Attribution</td><td>"ITP pixel attribution" + "iOS 17 tracking"</td><td>~L336–341</td></tr>
+          <tr><td style="color:#d6bcfa">UC6 — Pre-Launch Audit</td><td>"campaign delivery checklist" + "pre-launch requirements"</td><td>~L432–437</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:10px;font-size:0.65rem;color:#718096;padding-top:8px;border-top:1px solid #1e2a3a">
+        <strong style="color:#fc8181">UC3</strong> (IVT/Fraud) and <strong style="color:#f6e05e">UC7</strong> (Budget Pacing) do <strong>not</strong> use RAG — Triage agent is absent from UC3's task chain; UC7 has no KB lookup task defined.
+      </div>
+    </div>
+
+    <div class="dk-card" style="margin-bottom:0">
+      <div class="dk-card-title">5 — Configuration (app/config.py:33–38)</div>
+      <table class="dk-tbl">
+        <thead><tr><th>Setting</th><th>Default</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td style="color:#90cdf4">kb_provider</td><td>"local"</td><td>"local" or "gcp"</td></tr>
+          <tr><td style="color:#90cdf4">kb_docs_dir</td><td>"./kb-docs"</td><td>Source JSON files dir</td></tr>
+          <tr><td style="color:#90cdf4">chroma_db_path</td><td>"./chroma_db"</td><td>ChromaDB storage path</td></tr>
+          <tr><td style="color:#90cdf4">gcp_project_id</td><td>""</td><td>GCP project (gcp mode)</td></tr>
+          <tr><td style="color:#90cdf4">kb_datastore_id</td><td>"adtech-kb"</td><td>Vertex AI Search datastore</td></tr>
+          <tr><td style="color:#90cdf4">kb_serving_config</td><td>"default_search"</td><td>Vertex AI Search config</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid #1e2a3a">
+        <div style="font-size:0.68rem;color:#718096;margin-bottom:7px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Provider Comparison</div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;background:#071510;border:1px solid #2d6a4f;border-radius:7px;padding:9px;font-size:0.65rem;color:#a0aec0"><div style="color:#4fd1c5;font-weight:700;margin-bottom:3px">Local · ChromaDB</div>No cloud cost · offline-capable · ~80MB model · ephemeral on Cloud Run (re-seeds each cold start) · auto-seeds from kb-docs/ JSON files</div>
+          <div style="flex:1;background:#0a1530;border:1px solid #2b6cb0;border-radius:7px;padding:9px;font-size:0.65rem;color:#a0aec0"><div style="color:#90cdf4;font-weight:700;margin-bottom:3px">GCP · Vertex AI Search</div>Fully managed · persistent across restarts · no local disk · handles concurrent queries · requires GCP project + Discovery Engine API</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. KB Document Format -->
+  <div class="dk-card">
+    <div class="dk-card-title">6 — KB Document Format &amp; Data Flow</div>
+    <div class="dk-two-col">
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;color:#f6ad55;margin-bottom:8px">Source JSON (kb-docs/*.json)</div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:12px;font-size:0.68rem;line-height:1.7;overflow-x:auto;color:#a0aec0">{
+  "id": "doc-005-itp-pixel",
+  "structData": {
+    "title"   : "ITP Pixel Attribution",
+    "content" : "Safari ITP 2.x restricts...",
+    "category": "pixel-attribution",
+    "link"    : "https://wiki/itp-guide"
+  }
+}</pre>
+      </div>
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;color:#4fd1c5;margin-bottom:8px">Stored in ChromaDB</div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:12px;font-size:0.68rem;line-height:1.7;overflow-x:auto;color:#a0aec0">document  : "ITP Pixel Attribution\n\nSafari ITP..."
+            ↑ title + content concatenated
+
+metadata  : {
+  title    : "ITP Pixel Attribution",
+  category : "pixel-attribution",
+  link     : "https://wiki/itp-guide"
+}
+
+id        : "doc-005-itp-pixel"
+
+embedding : [0.23, -0.07, 0.91, ...]
+            ↑ 384-dim vector from MiniLM
+            ↑ computed once at seed time</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Production Readiness Assessment -->
+  <div class="dk-card">
+    <div class="dk-card-title">7 — Production Readiness Assessment</div>
+
+    <!-- What it does well -->
+    <div style="font-size:0.7rem;font-weight:700;color:#68d391;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">What the current implementation does well</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:18px">
+      <div style="background:#071510;border:1px solid #276749;border-radius:8px;padding:10px 12px;font-size:0.68rem;color:#a0aec0"><div style="color:#68d391;font-weight:700;margin-bottom:3px">Tool-Wrapped RAG</div>Agent decides when to search — not forced on every call. Avoids irrelevant KB noise in use cases that don't need it (UC3, UC7).</div>
+      <div style="background:#071510;border:1px solid #276749;border-radius:8px;padding:10px 12px;font-size:0.68rem;color:#a0aec0"><div style="color:#68d391;font-weight:700;margin-bottom:3px">Local Embedding</div>No API dependency, no extra latency, no quota. all-MiniLM-L6-v2 is sufficient for a short-form AdTech KB.</div>
+      <div style="background:#071510;border:1px solid #276749;border-radius:8px;padding:10px 12px;font-size:0.68rem;color:#a0aec0"><div style="color:#68d391;font-weight:700;margin-bottom:3px">Dual Provider</div>One config flag (KB_PROVIDER=gcp) switches to Vertex AI Search. Production escape hatch already built in.</div>
+      <div style="background:#071510;border:1px solid #276749;border-radius:8px;padding:10px 12px;font-size:0.68rem;color:#a0aec0"><div style="color:#68d391;font-weight:700;margin-bottom:3px">Metadata Preserved</div>title, category, link stored alongside vectors — needed for attribution and source citation in final answers.</div>
+    </div>
+
+    <!-- Critical gaps -->
+    <div style="font-size:0.7rem;font-weight:700;color:#fc8181;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">Critical Production Gaps</div>
+    <table class="dk-tbl" style="margin-bottom:16px">
+      <thead><tr><th>Gap</th><th>Current</th><th>Production Standard</th></tr></thead>
+      <tbody>
+        <tr><td style="color:#fc8181">No score threshold</td><td>Returns top-3 even if score = 0.1 (garbage)</td><td>Filter: score &lt; 0.5 → return "no relevant KB article found" to LLM</td></tr>
+        <tr><td style="color:#fc8181">No hybrid search</td><td>Semantic only (dense vectors)</td><td>BM25 (keyword) + semantic, merged via Reciprocal Rank Fusion (RRF). Semantic misses exact product codes; BM25 misses synonyms.</td></tr>
+        <tr><td style="color:#fc8181">ChromaDB not horizontally scalable</td><td>File-locked SQLite, single-instance only</td><td>Qdrant / Weaviate / pgvector for multi-instance Cloud Run deployments</td></tr>
+        <tr><td style="color:#fc8181">No re-ranking</td><td>Raw cosine similarity sorts final results</td><td>Cross-encoder re-ranker rescores top-20, returns top-3. Largest single gain in retrieval precision.</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Important gaps -->
+    <div style="font-size:0.7rem;font-weight:700;color:#f6ad55;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">Important Gaps</div>
+    <table class="dk-tbl" style="margin-bottom:16px">
+      <thead><tr><th>Gap</th><th>Current</th><th>Production Standard</th></tr></thead>
+      <tbody>
+        <tr><td style="color:#f6ad55">No chunking strategy</td><td>Pre-chunked at JSON file level</td><td>If docs grow: recursive splitter 512-token chunks + 50-token overlap. Parent-child retrieval (fetch chunk, expand to full doc).</td></tr>
+        <tr><td style="color:#f6ad55">No query rewriting</td><td>Raw user query sent to ChromaDB</td><td>Rewrite conversational query to KB terminology before embedding. E.g. "pixel not firing on safari" → "Safari ITP cookie attribution prevention".</td></tr>
+        <tr><td style="color:#f6ad55">No RAG evaluation</td><td>No way to measure retrieval quality</td><td>RAGAS framework: measures context_recall, faithfulness, answer_relevancy. Without it you can't know if RAG is helping or hallucinating.</td></tr>
+        <tr><td style="color:#f6ad55">Cold-start latency</td><td>MiniLM loads on first request (~3–5s on Cloud Run)</td><td>Pre-warm: fire a dummy KB search in FastAPI <code>lifespan</code> startup before serving traffic.</td></tr>
+        <tr><td style="color:#f6ad55">No document freshness</td><td>Manual re-seed only</td><td>Add <code>updated_at</code> metadata + periodic re-index job. Stale runbooks give wrong advice.</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Nice to have -->
+    <div style="font-size:0.7rem;font-weight:700;color:#718096;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">Nice to Have</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      <div style="background:#111827;border:1px solid #2d3748;border-radius:6px;padding:6px 10px;font-size:0.65rem;color:#a0aec0">Query embedding cache — LRU cache on query hash to skip re-embedding repeated queries</div>
+      <div style="background:#111827;border:1px solid #2d3748;border-radius:6px;padding:6px 10px;font-size:0.65rem;color:#a0aec0">Multi-query retrieval — generate 3 query variants, retrieve for each, deduplicate results</div>
+      <div style="background:#111827;border:1px solid #2d3748;border-radius:6px;padding:6px 10px;font-size:0.65rem;color:#a0aec0">Explicit no-KB fallback signal — tell the LLM when score is low so it proceeds from general knowledge instead of hallucinating KB content</div>
+      <div style="background:#111827;border:1px solid #2d3748;border-radius:6px;padding:6px 10px;font-size:0.65rem;color:#a0aec0">HyDE — generate a hypothetical answer first, embed that, search KB with it (better recall for short vague queries)</div>
+    </div>
+  </div>
+
+  <!-- 8. Standard Production RAG Stack -->
+  <div class="dk-card">
+    <div class="dk-card-title">8 — Standard Production RAG Stack (2025)</div>
+    <div class="dk-two-col">
+      <div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:14px;font-size:0.68rem;line-height:1.9;overflow-x:auto;color:#a0aec0">User Query
+    │
+    ▼
+<span style="color:#f6ad55">[Query Rewriting]</span>         cheap LLM call (llama-3.1-8b)
+    │                     converts conversational → KB terms
+    ▼
+<span style="color:#fc8181">[Hybrid Retrieval]</span>        dense (ChromaDB/pgvector)
+    │                   + sparse (BM25 keyword)
+    │                     merge with Reciprocal Rank Fusion
+    ▼
+<span style="color:#b794f4">[Re-ranking]</span>              cross-encoder scores top-20
+    │                     returns top-3 by true relevance
+    ▼
+<span style="color:#fc8181">[Score Threshold]</span>         drop docs with score &lt; 0.5
+    │                     return "no KB article found" if empty
+    ▼
+<span style="color:#68d391">[Context Assembly]</span>        inject into LLM prompt
+    │                     with source citations
+    ▼
+<span style="color:#4fd1c5">[Faithfulness Check]</span>      RAGAS: did the answer use the KB?
+                          context_recall + answer_relevancy</pre>
+      </div>
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;color:#a0aec0;margin-bottom:10px">Production Vector DB Comparison</div>
+        <table class="dk-tbl">
+          <thead><tr><th>DB</th><th>Hybrid</th><th>Scale</th><th>Best for</th></tr></thead>
+          <tbody>
+            <tr><td style="color:#90cdf4">ChromaDB</td><td style="color:#fc8181">No</td><td>Single-node</td><td>POC / local dev</td></tr>
+            <tr><td style="color:#68d391">Qdrant</td><td style="color:#68d391">Yes</td><td>Distributed</td><td>Self-hosted prod</td></tr>
+            <tr><td style="color:#68d391">Weaviate</td><td style="color:#68d391">Yes</td><td>Distributed</td><td>Multi-modal</td></tr>
+            <tr><td style="color:#68d391">pgvector</td><td style="color:#68d391">Yes</td><td>PostgreSQL</td><td>Already on PG</td></tr>
+            <tr><td style="color:#90cdf4">Vertex AI Search</td><td style="color:#68d391">Yes</td><td>Fully managed</td><td>GCP prod (this project)</td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top:12px;font-size:0.7rem;font-weight:700;color:#a0aec0;margin-bottom:8px">RAG Evaluation Metrics (RAGAS)</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="background:#111827;border:1px solid #2d3748;border-radius:6px;padding:7px 10px;font-size:0.65rem;color:#a0aec0"><span style="color:#b794f4;font-weight:700">context_recall</span> — did the retrieved docs contain the answer?</div>
+          <div style="background:#111827;border:1px solid #2d3748;border-radius:6px;padding:7px 10px;font-size:0.65rem;color:#a0aec0"><span style="color:#b794f4;font-weight:700">faithfulness</span> — did the LLM only use retrieved context (no hallucination)?</div>
+          <div style="background:#111827;border:1px solid #2d3748;border-radius:6px;padding:7px 10px;font-size:0.65rem;color:#a0aec0"><span style="color:#b794f4;font-weight:700">answer_relevancy</span> — does the answer address the question?</div>
+          <div style="background:#111827;border:1px solid #2d3748;border-radius:6px;padding:7px 10px;font-size:0.65rem;color:#a0aec0"><span style="color:#b794f4;font-weight:700">context_precision</span> — are retrieved docs actually relevant (no noise)?</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. Upgrade Path -->
+  <div class="dk-card">
+    <div class="dk-card-title">9 — Recommended Upgrade Path</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+
+      <div style="background:#0a1a10;border:1px solid #276749;border-radius:10px;padding:14px">
+        <div style="font-size:0.65rem;font-weight:700;color:#68d391;margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em">Phase 1 — Quick Wins</div>
+        <div style="font-size:0.62rem;color:#718096;margin-bottom:10px">~1 day · no new dependencies</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="background:#071510;border:1px solid #276749;border-radius:5px;padding:6px 8px;font-size:0.65rem;color:#a0aec0"><span style="color:#68d391;font-weight:700">1.</span> Add score threshold — reject results below 0.5 in <code style="color:#90cdf4">_kb_search_local()</code></div>
+          <div style="background:#071510;border:1px solid #276749;border-radius:5px;padding:6px 8px;font-size:0.65rem;color:#a0aec0"><span style="color:#68d391;font-weight:700">2.</span> Pre-warm MiniLM model in FastAPI <code style="color:#90cdf4">lifespan</code> startup event</div>
+          <div style="background:#071510;border:1px solid #276749;border-radius:5px;padding:6px 8px;font-size:0.65rem;color:#a0aec0"><span style="color:#68d391;font-weight:700">3.</span> Return "no KB article found" signal to LLM when threshold fails</div>
+        </div>
+      </div>
+
+      <div style="background:#0a1530;border:1px solid #2b6cb0;border-radius:10px;padding:14px">
+        <div style="font-size:0.65rem;font-weight:700;color:#90cdf4;margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em">Phase 2 — Retrieval Quality</div>
+        <div style="font-size:0.62rem;color:#718096;margin-bottom:10px">~1 week · sentence-transformers already installed</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="background:#060f1e;border:1px solid #2b6cb0;border-radius:5px;padding:6px 8px;font-size:0.65rem;color:#a0aec0"><span style="color:#90cdf4;font-weight:700">1.</span> Add BM25 hybrid search via <code style="color:#90cdf4">rank_bm25</code>, merge with RRF</div>
+          <div style="background:#060f1e;border:1px solid #2b6cb0;border-radius:5px;padding:6px 8px;font-size:0.65rem;color:#a0aec0"><span style="color:#90cdf4;font-weight:700">2.</span> Add cross-encoder re-ranking (<code style="color:#90cdf4">ms-marco-MiniLM-L-6-v2</code>)</div>
+          <div style="background:#060f1e;border:1px solid #2b6cb0;border-radius:5px;padding:6px 8px;font-size:0.65rem;color:#a0aec0"><span style="color:#90cdf4;font-weight:700">3.</span> Add lightweight query rewriting step before embedding</div>
+          <div style="background:#060f1e;border:1px solid #2b6cb0;border-radius:5px;padding:6px 8px;font-size:0.65rem;color:#a0aec0"><span style="color:#90cdf4;font-weight:700">4.</span> Add RAGAS eval against 20-query golden test set</div>
+        </div>
+      </div>
+
+      <div style="background:#0d0820;border:1px solid #553c9a;border-radius:10px;padding:14px">
+        <div style="font-size:0.65rem;font-weight:700;color:#b794f4;margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em">Phase 3 — Production Infra</div>
+        <div style="font-size:0.62rem;color:#718096;margin-bottom:10px">~2 weeks · infrastructure changes</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="background:#0a0618;border:1px solid #553c9a;border-radius:5px;padding:6px 8px;font-size:0.65rem;color:#a0aec0"><span style="color:#b794f4;font-weight:700">1.</span> Replace ChromaDB with <strong style="color:#d6bcfa">Qdrant</strong> (horizontally scalable, built-in hybrid)</div>
+          <div style="background:#0a0618;border:1px solid #553c9a;border-radius:5px;padding:6px 8px;font-size:0.65rem;color:#a0aec0"><span style="color:#b794f4;font-weight:700">2.</span> Or set <code style="color:#90cdf4">KB_PROVIDER=gcp</code> for zero-ops Vertex AI Search on Cloud Run</div>
+          <div style="background:#0a0618;border:1px solid #553c9a;border-radius:5px;padding:6px 8px;font-size:0.65rem;color:#a0aec0"><span style="color:#b794f4;font-weight:700">3.</span> Add document versioning + periodic re-index webhook for KB freshness</div>
+          <div style="background:#0a0618;border:1px solid #553c9a;border-radius:5px;padding:6px 8px;font-size:0.65rem;color:#a0aec0"><span style="color:#b794f4;font-weight:700">4.</span> Set up RAGAS CI gate — fail deploy if context_recall drops below 0.8</div>
+        </div>
+      </div>
+
+    </div>
+    <div style="margin-top:12px;background:#111827;border:1px solid #f6ad55;border-left:3px solid #f6ad55;border-radius:0 6px 6px 0;padding:10px 14px;font-size:0.68rem;color:#a0aec0;line-height:1.6">
+      <strong style="color:#f6e05e">Bottom line:</strong> The current RAG is appropriate for a POC — it proves the pattern works end-to-end. The two highest-impact production fixes are <strong style="color:#fc8181">score threshold</strong> (prevents garbage docs from poisoning the LLM context — 30-minute fix) and <strong style="color:#fc8181">hybrid search + re-ranker</strong> (the single largest gain in retrieval precision — 1-day fix). Without these, the system will give confidently wrong answers when the KB has a low-relevance match and the agent treats it as authoritative.
+    </div>
+  </div>
+
+</div><!-- /dk-page -->
+</div><!-- /tab-rag -->
+
+<!-- ════════════════════════════════════════════
+  TAB 4 — EMBEDDINGS
+════════════════════════════════════════════ -->
+<div id="tab-embed" class="tab-content">
+<div class="dk-page">
+
+  <div class="dk-hdr">
+    <div>
+      <h1>Embeddings — Text to Vector to Vector DB</h1>
+      <div style="color:#718096;font-size:0.78rem;margin-top:2px">How raw text becomes a searchable float array · Embedding models · Storage · Retrieval</div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+      <span class="dk-badge">SentenceTransformers</span>
+      <span class="dk-badge">OpenAI text-embedding</span>
+      <span class="dk-badge">ChromaDB · pgvector · Qdrant</span>
+    </div>
+  </div>
+
+  <!-- stats -->
+  <div class="dk-stats">
+    <div class="dk-stat"><div class="dk-stat-v">384</div><div class="dk-stat-l">MiniLM dims</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">1536</div><div class="dk-stat-l">OpenAI dims</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">768</div><div class="dk-stat-l">mpnet dims</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">3</div><div class="dk-stat-l">Model providers</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">3</div><div class="dk-stat-l">Vector DB options</div></div>
+    <div class="dk-stat"><div class="dk-stat-v">cosine</div><div class="dk-stat-l">Similarity metric</div></div>
+  </div>
+
+  <!-- Card 1: What is an embedding -->
+  <div class="dk-card">
+    <div class="dk-card-title">1 — What is an Embedding?</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;color:#90cdf4;margin-bottom:10px">Text → Number Array (the transform)</div>
+        <div class="dk-flow" style="flex-direction:column;gap:0;align-items:flex-start">
+          <div class="dk-fb user" style="width:100%;min-width:0;margin-bottom:0;border-radius:8px 8px 0 0">
+            <div class="dk-fbt" style="color:#68d391">Input Text (string)</div>
+            <div class="dk-fbs">"Campaign not delivering impressions"</div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:4px 0;background:#060b10;border-left:1px solid #276749;border-right:1px solid #276749">
+            <div style="display:flex;flex-direction:column;align-items:center"><div style="width:2px;height:10px;background:#4a5568"></div><div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #4a5568"></div></div>
+          </div>
+          <div class="dk-fb crew" style="width:100%;min-width:0;border-radius:0">
+            <div class="dk-fbt" style="color:#b794f4">Embedding Model</div>
+            <div class="dk-fbs">Neural network (transformer)<br>all-MiniLM-L6-v2 / text-embedding-3-small</div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:4px 0;background:#060b10;border-left:1px solid #553c9a;border-right:1px solid #553c9a">
+            <div style="display:flex;flex-direction:column;align-items:center"><div style="width:2px;height:10px;background:#4a5568"></div><div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #4a5568"></div></div>
+          </div>
+          <div class="dk-fb db" style="width:100%;min-width:0;border-radius:0 0 8px 8px">
+            <div class="dk-fbt" style="color:#4fd1c5">Float Array (vector)</div>
+            <div class="dk-fbs">[0.23, -0.07, 0.91, 0.44, -0.12, ...]<br>384 or 768 or 1536 numbers</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;color:#68d391;margin-bottom:10px">Semantic Similarity in Vector Space</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="background:#0a1a10;border:1px solid #276749;border-radius:8px;padding:10px 12px">
+            <div style="font-size:0.65rem;color:#68d391;font-weight:700;margin-bottom:5px">High Similarity (score ≈ 0.92)</div>
+            <div style="font-size:0.67rem;color:#a0aec0;line-height:1.5">"Campaign not delivering" <br>↔ "Zero impressions on campaign"<br><span style="color:#718096">→ similar meaning, close vectors</span></div>
+          </div>
+          <div style="background:#1a0815;border:1px solid #702459;border-radius:8px;padding:10px 12px">
+            <div style="font-size:0.65rem;color:#fc8181;font-weight:700;margin-bottom:5px">Low Similarity (score ≈ 0.11)</div>
+            <div style="font-size:0.67rem;color:#a0aec0;line-height:1.5">"Campaign not delivering"<br>↔ "Pizza recipe for dinner"<br><span style="color:#718096">→ unrelated meaning, distant vectors</span></div>
+          </div>
+          <div style="background:#111827;border:1px solid #2d3748;border-radius:8px;padding:10px 12px;font-size:0.67rem;color:#a0aec0;line-height:1.6">
+            <strong style="color:#f6ad55">Key insight:</strong> The model never memorises text. It compresses meaning into coordinates. Semantically close sentences land near each other in N-dimensional space — that's what makes vector search work.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 2: Embedding Models -->
+  <div class="dk-card">
+    <div class="dk-card-title">2 — Embedding Model Options</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+
+      <div style="background:#0d1117;border:2px solid #276749;border-radius:10px;padding:14px;position:relative">
+        <div style="position:absolute;top:-9px;right:10px;background:#276749;color:#68d391;font-size:0.58rem;font-weight:700;padding:2px 8px;border-radius:8px">USED IN THIS PROJECT</div>
+        <div style="font-size:0.72rem;font-weight:700;color:#68d391;margin-bottom:6px">SentenceTransformers · Local</div>
+        <div style="font-size:0.65rem;color:#718096;line-height:1.6;margin-bottom:8px">Runs on your machine · No API key · ~80MB download · Best for offline/POC</div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:5px;padding:10px;font-size:0.63rem;line-height:1.6;overflow-x:auto;color:#a0aec0">from sentence_transformers import (
+  SentenceTransformer
+)
+
+model = SentenceTransformer(
+  "all-MiniLM-L6-v2"   # 384 dims
+)
+
+# single text
+vec = model.encode("my text")
+# → numpy array (384,)
+
+# batch — always faster
+vecs = model.encode([
+  "text one",
+  "text two"
+])
+# → numpy array (2, 384)</pre>
+      </div>
+
+      <div style="background:#0d1117;border:1px solid #2b6cb0;border-radius:10px;padding:14px">
+        <div style="font-size:0.72rem;font-weight:700;color:#90cdf4;margin-bottom:6px">OpenAI · API</div>
+        <div style="font-size:0.65rem;color:#718096;line-height:1.6;margin-bottom:8px">1536-dim · Highest quality · $0.02/1M tokens · Needs OPENAI_API_KEY</div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:5px;padding:10px;font-size:0.63rem;line-height:1.6;overflow-x:auto;color:#a0aec0">from openai import OpenAI
+
+client = OpenAI(api_key="sk-...")
+
+resp = client.embeddings.create(
+  model="text-embedding-3-small",
+  input="my text"
+)
+
+vec = resp.data[0].embedding
+# → list of 1536 floats
+
+# batch
+resp = client.embeddings.create(
+  model="text-embedding-3-small",
+  input=["text one", "text two"]
+)
+vecs = [d.embedding for d in resp.data]</pre>
+      </div>
+
+      <div style="background:#0d1117;border:1px solid #744210;border-radius:10px;padding:14px">
+        <div style="font-size:0.72rem;font-weight:700;color:#f6ad55;margin-bottom:6px">Google Vertex AI · API</div>
+        <div style="font-size:0.65rem;color:#718096;line-height:1.6;margin-bottom:8px">768-dim · GCP-native · Auth via ADC · No extra API key needed on Cloud Run</div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:5px;padding:10px;font-size:0.63rem;line-height:1.6;overflow-x:auto;color:#a0aec0">from vertexai.language_models import (
+  TextEmbeddingModel
+)
+
+model = TextEmbeddingModel\
+  .from_pretrained(
+    "text-embedding-004"
+  )
+
+result = model.get_embeddings(
+  ["my text"]
+)
+vec = result[0].values
+# → list of 768 floats
+
+# Auth: gcloud auth
+# application-default login</pre>
+      </div>
+
+    </div>
+    <div style="background:#111827;border:1px solid #2d3748;border-radius:8px;padding:10px 14px">
+      <table class="dk-tbl" style="margin:0">
+        <thead><tr><th>Model</th><th>Dims</th><th>Size / Cost</th><th>Speed</th><th>Needs API Key</th><th>Best for</th></tr></thead>
+        <tbody>
+          <tr><td style="color:#68d391">all-MiniLM-L6-v2</td><td>384</td><td>~80MB local</td><td>~50ms</td><td style="color:#68d391">No</td><td>POC, offline, low latency</td></tr>
+          <tr><td style="color:#a0aec0">all-mpnet-base-v2</td><td>768</td><td>~420MB local</td><td>~200ms</td><td style="color:#68d391">No</td><td>Better quality, still local</td></tr>
+          <tr><td style="color:#90cdf4">text-embedding-3-small</td><td>1536</td><td>$0.02/1M tokens</td><td>+100ms API</td><td style="color:#fc8181">Yes</td><td>Production, highest quality</td></tr>
+          <tr><td style="color:#f6ad55">text-embedding-004</td><td>768</td><td>GCP pricing</td><td>+100ms API</td><td style="color:#68d391">ADC only</td><td>GCP prod, same project auth</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Card 3: Save to Vector DB -->
+  <div class="dk-card">
+    <div class="dk-card-title">3 — Embed Text and Save into Vector DB</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+      <!-- ChromaDB -->
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;color:#4fd1c5;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          <span style="background:#071510;border:1px solid #2d6a4f;border-radius:4px;padding:2px 7px">ChromaDB</span>
+          <span style="font-size:0.6rem;color:#718096">auto-embeds via embedding_function</span>
+        </div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:12px;font-size:0.63rem;line-height:1.7;overflow-x:auto;color:#a0aec0">import chromadb
+from chromadb.utils.embedding_functions import (
+  SentenceTransformerEmbeddingFunction
+)
+
+client = chromadb.PersistentClient(
+  path="./chroma_db"
+)
+ef = SentenceTransformerEmbeddingFunction(
+  model_name="all-MiniLM-L6-v2"
+)
+collection = client.get_or_create_collection(
+  name="user_history",
+  embedding_function=ef   <span style="color:#68d391"># auto-embeds on add</span>
+)
+
+<span style="color:#90cdf4"># ChromaDB embeds the text for you</span>
+collection.add(
+  ids=["ticket-001", "ticket-002"],
+  documents=[
+    "Campaign C123 zero impressions",
+    "PMP deal D456 zero bids"
+  ],
+  metadatas=[
+    {"user":"ashish","use_case":"delivery"},
+    {"user":"ashish","use_case":"pmp_deal"}
+  ]
+)</pre>
+      </div>
+
+      <!-- pgvector -->
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;color:#90cdf4;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          <span style="background:#0a1530;border:1px solid #2b6cb0;border-radius:4px;padding:2px 7px">pgvector</span>
+          <span style="font-size:0.6rem;color:#718096">PostgreSQL extension — you embed manually</span>
+        </div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:12px;font-size:0.63rem;line-height:1.7;overflow-x:auto;color:#a0aec0">import psycopg2
+from sentence_transformers import (
+  SentenceTransformer
+)
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+conn  = psycopg2.connect("postgresql://...")
+cur   = conn.cursor()
+
+<span style="color:#90cdf4"># one-time table setup</span>
+cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+cur.execute("""
+  CREATE TABLE IF NOT EXISTS user_history (
+    id        SERIAL PRIMARY KEY,
+    user_id   TEXT,
+    text      TEXT,
+    embedding vector(384),  <span style="color:#68d391"># pgvector type</span>
+    created_at TIMESTAMPTZ DEFAULT now()
+  )
+""")
+
+<span style="color:#90cdf4"># embed then insert</span>
+text = "Campaign C123 zero impressions"
+vec  = model.encode(text).tolist()
+
+cur.execute(
+  "INSERT INTO user_history "
+  "(user_id, text, embedding) "
+  "VALUES (%s, %s, %s)",
+  ("ashish", text, vec)
+)
+conn.commit()</pre>
+      </div>
+
+    </div>
+
+    <!-- Qdrant full width -->
+    <div>
+      <div style="font-size:0.7rem;font-weight:700;color:#b794f4;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <span style="background:#0a0618;border:1px solid #553c9a;border-radius:4px;padding:2px 7px">Qdrant</span>
+        <span style="font-size:0.6rem;color:#718096">production-grade — you embed manually, full metadata payload</span>
+      </div>
+      <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:12px;font-size:0.63rem;line-height:1.7;overflow-x:auto;color:#a0aec0">from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
+from sentence_transformers import SentenceTransformer
+
+model  = SentenceTransformer("all-MiniLM-L6-v2")
+client = QdrantClient(url="http://localhost:6333")
+
+<span style="color:#90cdf4"># one-time collection setup</span>
+client.create_collection(
+  collection_name="user_history",
+  vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+)
+
+<span style="color:#90cdf4"># embed and upsert</span>
+texts = ["Campaign C123 zero impressions", "PMP deal D456 zero bids"]
+vecs  = model.encode(texts).tolist()
+
+client.upsert(
+  collection_name="user_history",
+  points=[
+    PointStruct(id=1, vector=vecs[0],
+      payload={"user":"ashish","use_case":"delivery","text":texts[0]}),
+    PointStruct(id=2, vector=vecs[1],
+      payload={"user":"ashish","use_case":"pmp_deal","text":texts[1]}),
+  ]
+)</pre>
+    </div>
+  </div>
+
+  <!-- Card 4: Search / Retrieve -->
+  <div class="dk-card">
+    <div class="dk-card-title">4 — Search / Retrieve by Similarity</div>
+    <div style="background:#111827;border:1px solid #553c9a;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.68rem;color:#a0aec0;line-height:1.6">
+      <strong style="color:#b794f4">Critical rule:</strong> Embed the query with the <strong style="color:#fc8181">exact same model</strong> used at insert time. Different models produce vectors in different spaces — cosine similarity becomes meaningless and retrieval silently breaks.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+
+      <!-- ChromaDB query -->
+      <div>
+        <div style="font-size:0.68rem;font-weight:700;color:#4fd1c5;margin-bottom:7px">ChromaDB query</div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:11px;font-size:0.63rem;line-height:1.7;overflow-x:auto;color:#a0aec0"><span style="color:#90cdf4"># ChromaDB embeds query for you</span>
+results = collection.query(
+  query_texts=[
+    "campaign stopped running"
+  ],
+  n_results=3,
+  where={"user": "ashish"} <span style="color:#68d391"># filter</span>
+)
+
+for doc, meta, dist in zip(
+  results["documents"][0],
+  results["metadatas"][0],
+  results["distances"][0]
+):
+  score = 1 - dist  <span style="color:#68d391"># dist→score</span>
+  print(f"[{score:.2f}] {doc}")</pre>
+      </div>
+
+      <!-- pgvector query -->
+      <div>
+        <div style="font-size:0.68rem;font-weight:700;color:#90cdf4;margin-bottom:7px">pgvector query</div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:11px;font-size:0.63rem;line-height:1.7;overflow-x:auto;color:#a0aec0"><span style="color:#90cdf4"># embed query first</span>
+q_text = "campaign stopped"
+q_vec  = model.encode(q_text)\
+               .tolist()
+
+<span style="color:#90cdf4"># &lt;=&gt; = cosine distance operator</span>
+cur.execute("""
+  SELECT text,
+    1-(embedding &lt;=&gt; %s::vector)
+    AS score
+  FROM user_history
+  ORDER BY
+    embedding &lt;=&gt; %s::vector
+  LIMIT 3
+""", (q_vec, q_vec))
+
+for row in cur.fetchall():
+  print(f"[{row[1]:.2f}] {row[0]}")</pre>
+      </div>
+
+      <!-- Qdrant query -->
+      <div>
+        <div style="font-size:0.68rem;font-weight:700;color:#b794f4;margin-bottom:7px">Qdrant query</div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:11px;font-size:0.63rem;line-height:1.7;overflow-x:auto;color:#a0aec0"><span style="color:#90cdf4"># embed query first</span>
+q_vec = model.encode(
+  "campaign stopped"
+).tolist()
+
+hits = client.search(
+  collection_name="user_history",
+  query_vector=q_vec,
+  limit=3,
+  query_filter={
+    "must": [{
+      "key":   "user",
+      "match": {"value":"ashish"}
+    }]
+  }
+)
+
+for hit in hits:
+  print(
+    f"[{hit.score:.2f}]"
+    f" {hit.payload['text']}"
+  )</pre>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Card 5: Full Pipeline -->
+  <div class="dk-card">
+    <div class="dk-card-title">5 — Full Insert → Search Pipeline</div>
+    <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:14px;font-size:0.68rem;line-height:1.9;overflow-x:auto;color:#a0aec0"><span style="color:#718096">───────────────── INSERT TIME ─────────────────</span>
+
+Raw Text (string)
+    │
+    ▼
+<span style="color:#b794f4">model.encode(text)</span>           ← neural network forward pass
+    │
+    ▼
+Float Array  [0.23, -0.07, 0.91, ...]     dim = 384 / 768 / 1536
+    │
+    ▼
+<span style="color:#4fd1c5">collection.add(id, document, embedding, metadata)</span>
+    │
+    ▼
+Stored on disk (ChromaDB SQLite / PostgreSQL / Qdrant RocksDB)
+
+<span style="color:#718096">───────────────── QUERY TIME ──────────────────</span>
+
+User Query (string)
+    │
+    ▼
+<span style="color:#b794f4">model.encode(query)</span>          ← SAME model as insert time!
+    │
+    ▼
+Query Vector  [0.19, -0.11, 0.88, ...]    dim = 384
+    │
+    ▼
+<span style="color:#4fd1c5">DB: cosine_similarity(query_vec, all_stored_vecs)</span>
+    │
+    ▼
+Ranked Results  [(doc_A, score=0.94), (doc_B, score=0.81), ...]
+    │
+    ▼
+<span style="color:#68d391">Inject top-N into LLM prompt as context</span>  ← RAG grounding</pre>
+  </div>
+
+  <!-- Card 6: User / History Text -->
+  <div class="dk-card">
+    <div class="dk-card-title">6 — Embedding User Text &amp; History (Memory Pattern)</div>
+    <div style="font-size:0.68rem;color:#718096;margin-bottom:12px">Store past queries and answers in a vector DB so agents can recall similar tickets — <em>"I've seen this before, 3 similar tickets last week traced to bid floor changes."</em></div>
+    <div class="dk-two-col">
+      <div>
+        <div style="font-size:0.68rem;font-weight:700;color:#f6ad55;margin-bottom:8px">Save ticket to ChromaDB on resolution</div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:12px;font-size:0.63rem;line-height:1.7;overflow-x:auto;color:#a0aec0"><span style="color:#90cdf4"># In app/api/routes.py — after crew resolves</span>
+async def save_ticket_with_embedding(
+    query, answer, use_case, campaign_id, ticket_id
+):
+    <span style="color:#90cdf4"># 1. existing: save to SQLite</span>
+    await db.save_ticket(...)
+
+    <span style="color:#90cdf4"># 2. new: embed Q+A, save to ChromaDB</span>
+    history_collection.add(
+        ids=[ticket_id],
+        documents=[
+            f"{query}\n\nAnswer: {answer}"
+        ],
+        metadatas=[{
+            "use_case":    use_case,
+            "campaign_id": campaign_id,
+            "ticket_id":   ticket_id,
+            "resolved":    "true"
+        }]
+    )</pre>
+      </div>
+      <div>
+        <div style="font-size:0.68rem;font-weight:700;color:#4fd1c5;margin-bottom:8px">Retrieve similar past tickets at triage time</div>
+        <pre style="background:#060b10;border:1px solid #1e2a3a;border-radius:6px;padding:12px;font-size:0.63rem;line-height:1.7;overflow-x:auto;color:#a0aec0"><span style="color:#90cdf4"># In KBSearchTool or a new HistorySearchTool</span>
+def find_similar_tickets(new_query, n=3):
+    results = history_collection.query(
+        query_texts=[new_query],
+        n_results=n,
+        where={"resolved": "true"}
+    )
+    return results
+
+<span style="color:#90cdf4"># Triage agent then sees:</span>
+<span style="color:#718096">"""
+Similar past tickets (score 0.91):
+  [2026-06-20] Campaign C99 zero impressions
+  → Root cause: bid below floor price
+  → Fix: increase base bid by 40%
+"""</span>
+<span style="color:#90cdf4"># Agent uses this as additional context</span>
+<span style="color:#90cdf4"># alongside the KB runbook retrieval</span></pre>
+      </div>
+    </div>
+    <div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+      <div style="background:#111827;border:1px solid #2d3748;border-radius:7px;padding:8px 10px;font-size:0.65rem;color:#a0aec0"><div style="color:#68d391;font-weight:700;margin-bottom:2px">What to embed</div>Query + full agent answer (not just query alone — answer contains the diagnosis)</div>
+      <div style="background:#111827;border:1px solid #2d3748;border-radius:7px;padding:8px 10px;font-size:0.65rem;color:#a0aec0"><div style="color:#f6ad55;font-weight:700;margin-bottom:2px">Metadata to store</div>use_case, campaign_id, advertiser_id, timestamp, resolution status</div>
+      <div style="background:#111827;border:1px solid #2d3748;border-radius:7px;padding:8px 10px;font-size:0.65rem;color:#a0aec0"><div style="color:#90cdf4;font-weight:700;margin-bottom:2px">When to search</div>Before KB search — if a near-identical ticket exists, reuse its resolution directly</div>
+      <div style="background:#111827;border:1px solid #2d3748;border-radius:7px;padding:8px 10px;font-size:0.65rem;color:#a0aec0"><div style="color:#b794f4;font-weight:700;margin-bottom:2px">Score threshold</div>Only surface past tickets with score &gt; 0.85 — below that they confuse more than they help</div>
+    </div>
+  </div>
+
+  <!-- Card 7: Summary -->
+  <div class="dk-card">
+    <div class="dk-card-title">7 — Summary: Text → Vector → Store → Retrieve</div>
+    <table class="dk-tbl">
+      <thead><tr><th>Step</th><th>What happens</th><th>Code call</th><th>Output</th></tr></thead>
+      <tbody>
+        <tr><td style="color:#b794f4">1. Choose model</td><td>Pick embedding model based on quality/cost/infra</td><td><code>SentenceTransformer("all-MiniLM-L6-v2")</code></td><td>Model object loaded in memory</td></tr>
+        <tr><td style="color:#f6ad55">2. Encode text</td><td>Neural network converts string → float array</td><td><code>model.encode("my text")</code></td><td>numpy array of shape (384,)</td></tr>
+        <tr><td style="color:#4fd1c5">3. Store</td><td>Save vector + original text + metadata to DB</td><td><code>collection.add(id, doc, meta)</code></td><td>Persisted on disk / cloud</td></tr>
+        <tr><td style="color:#90cdf4">4. Encode query</td><td>Embed search query with same model</td><td><code>model.encode("search query")</code></td><td>Query vector (384,)</td></tr>
+        <tr><td style="color:#68d391">5. Search</td><td>DB computes cosine similarity of query vs all stored vectors</td><td><code>collection.query(query_texts=[...])</code></td><td>Top-N docs ranked by score 0–1</td></tr>
+        <tr><td style="color:#fc8181">6. Use results</td><td>Inject retrieved docs into LLM prompt as context</td><td>Append to agent task description</td><td>Grounded LLM answer</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;background:#111827;border:1px solid #fc8181;border-left:3px solid #fc8181;border-radius:0 6px 6px 0;padding:10px 14px;font-size:0.68rem;color:#a0aec0;line-height:1.6">
+      <strong style="color:#fc8181">Never mix embedding models.</strong> If you inserted with <code>all-MiniLM-L6-v2</code> (384-dim) and query with <code>text-embedding-3-small</code> (1536-dim), the dimensions don't even match and the DB will error. If you somehow use two different 384-dim models, cosine similarity returns garbage scores silently — no error, wrong results every time.
+    </div>
+  </div>
+
+</div><!-- /dk-page -->
+</div><!-- /tab-embed -->
+
+<script>
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+function toggleFAQ(btn) {
+  const item = btn.parentElement;
+  const ans = item.querySelector('.faq-a');
+  const arrow = btn.querySelector('.faq-arrow');
+  const isOpen = ans.classList.contains('open');
+  ans.classList.toggle('open', !isOpen);
+  arrow.classList.toggle('open', !isOpen);
+}
+function filterFAQ(cat, btn) {
+  document.querySelectorAll('.faq-group-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.faq-item').forEach(item => {
+    item.style.display = (cat === 'all' || item.dataset.cat === cat) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

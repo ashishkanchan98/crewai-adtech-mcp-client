@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     vertex_location: str = "us-central1"
     vertex_model: str = "gemini-2.0-flash-001"
 
+    # Intent classifier: 0 = keyword scoring (local), 1 = LLM via Groq llama-3.1-8b-instant (production)
+    classifier_mode: int = 0
+
     # CrewAI settings
     crew_verbose: bool = False
     crew_max_iter: int = 10

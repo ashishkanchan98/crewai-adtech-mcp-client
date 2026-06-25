@@ -1,9 +1,13 @@
 """
 Query classifier: routes incoming support queries to the correct crew.
-Uses keyword scoring for speed; falls back to 'delivery_failure' if no match.
+classifier_mode=0 (local)  : keyword scoring — fast, no API call.
+classifier_mode=1 (production): Groq llama-3.1-8b-instant — understands full query context.
 """
 import logging
-import re
+
+from groq import Groq
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -67,31 +71,54 @@ USE_CASE_META = {
 }
 
 
-def classify_query(query: str) -> str:
-    """
-    Score each use case by keyword hits in the query (case-insensitive).
-    Returns the use case key with the highest score.
-    Ties broken by order in USE_CASE_META.
-    """
+def _classify_keyword(query: str) -> str:
+    """classifier_mode=0: keyword hit-count scoring."""
     q = query.lower()
-    scores: dict[str, int] = {}
-
-    for use_case, meta in USE_CASE_META.items():
-        score = sum(1 for kw in meta["keywords"] if kw in q)
-        scores[use_case] = score
-
-    best_use_case = max(scores, key=lambda k: scores[k])
-    best_score = scores[best_use_case]
-
+    scores = {
+        uc: sum(1 for kw in meta["keywords"] if kw in q)
+        for uc, meta in USE_CASE_META.items()
+    }
+    best, best_score = max(scores.items(), key=lambda x: x[1])
     if best_score == 0:
         logger.info("No keyword match — defaulting to delivery_failure")
         return "delivery_failure"
+    logger.info("Keyword classifier → '%s' (score=%d)  query='%.80s'", best, best_score, query)
+    return best
 
-    logger.info(
-        "Query classified as '%s' (score=%d)  query='%.80s'",
-        best_use_case, best_score, query,
+
+def _classify_llm(query: str) -> str:
+    """classifier_mode=1: single Groq llama-3.1-8b-instant call."""
+    use_cases = "\n".join(
+        f"- {key}: {meta['label']}" for key, meta in USE_CASE_META.items()
     )
-    return best_use_case
+    prompt = (
+        "You are an adtech support router. Given a support query, return ONLY the single "
+        "most appropriate use-case key from the list below — no explanation, no punctuation.\n\n"
+        f"Use cases:\n{use_cases}\n\n"
+        f"Query: {query}"
+    )
+    try:
+        client = Groq(api_key=settings.groq_api_key)
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=20,
+        )
+        result = response.choices[0].message.content.strip().lower()
+        if result in USE_CASE_META:
+            logger.info("LLM classifier → '%s'  query='%.80s'", result, query)
+            return result
+        logger.warning("LLM returned unknown key '%s' — falling back to keyword", result)
+    except Exception as exc:
+        logger.warning("LLM classifier error (%s) — falling back to keyword", exc)
+    return _classify_keyword(query)
+
+
+def classify_query(query: str) -> str:
+    if settings.classifier_mode == 1:
+        return _classify_llm(query)
+    return _classify_keyword(query)
 
 
 def get_use_case_label(use_case: str) -> str:

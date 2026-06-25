@@ -110,6 +110,19 @@
   .uc-examples{display:flex;flex-direction:column;gap:6px;flex:1}
   .uc-example{background:#1a1f2e;border-left:3px solid #553c9a;padding:7px 12px;border-radius:0 6px 6px 0;font-size:0.82rem;color:#cbd5e0;font-style:italic}
   .uc-curl{font-family:monospace;font-size:0.75rem;background:#0d1117;border:1px solid #2d3748;border-radius:6px;padding:10px 14px;color:#a0aec0;white-space:pre;overflow-x:auto;flex:1;line-height:1.6}
+
+  /* GCP deployment guide */
+  .gcp-step-item{background:#0d1117;border:1px solid #2d3748;border-radius:8px;margin-bottom:6px;cursor:pointer;transition:border-color .2s}
+  .gcp-step-item:hover{border-color:#276749}
+  .gcp-step-header{display:flex;align-items:center;gap:12px;padding:12px 16px}
+  .gcp-step-num{width:26px;height:26px;background:#276749;color:#c6f6d5;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.78rem;font-weight:700;flex-shrink:0}
+  .gcp-step-title{font-size:0.9rem;font-weight:600;color:#e2e8f0;flex:1}
+  .gcp-step-arrow{font-size:0.7rem;color:#718096;transition:transform .2s;flex-shrink:0}
+  .gcp-step-arrow.open{transform:rotate(90deg)}
+  .gcp-code-wrap{position:relative;margin-bottom:10px}
+  .gcp-code-wrap code{display:block;font-family:monospace;font-size:0.78rem;background:#0d1117;border:1px solid #2d3748;border-radius:6px;padding:14px 16px;color:#a0aec0;white-space:pre;overflow-x:auto;line-height:1.7}
+  .gcp-copy-btn{position:absolute;top:8px;right:8px;background:#1a2535;border:1px solid #2d3748;color:#718096;font-size:0.7rem;padding:3px 10px;border-radius:4px;cursor:pointer;transition:all .2s}
+  .gcp-copy-btn:hover{background:#276749;color:#c6f6d5;border-color:#276749}
 </style>
 </head>
 <body>
@@ -131,6 +144,8 @@
   <button onclick="showPage('crews',this)">Crew Architecture</button>
   <button onclick="showPage('agents',this)">Agent Roster</button>
   <button onclick="showPage('api',this)">API Reference</button>
+  <button onclick="showPage('gcp',this)">GCP Deployment</button>
+  <a href="/static/arch_diagram.html" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:14px 18px;color:#a0aec0;font-size:0.88rem;text-decoration:none;border-bottom:2px solid transparent;transition:all .2s" onmouseover="this.style.color='#e2e8f0'" onmouseout="this.style.color='#a0aec0'">Architecture Diagram ↗</a>
 </nav>
 
 <!-- NEW QUERY ──────────────────────────────────────────────────────────────── -->
@@ -983,6 +998,314 @@ function toggleUC(id) {
   body.classList.toggle('open', !isOpen);
   arrow.classList.toggle('open', !isOpen);
 }
+
+function toggleGCP(id) {
+  const body  = document.getElementById(id + '-body');
+  const arrow = document.getElementById(id + '-arrow');
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  if (arrow) arrow.classList.toggle('open', !isOpen);
+}
+
+function copyCode(btn) {
+  const block = btn.closest('.gcp-code-wrap').querySelector('code');
+  navigator.clipboard.writeText(block.innerText).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1800);
+  });
+}
 </script>
+
+<!-- GCP DEPLOYMENT GUIDE ───────────────────────────────────────────────────── -->
+<div class="page" id="page-gcp">
+
+  <!-- Architecture overview -->
+  <div class="card">
+    <h2>GCP Deployment Guide</h2>
+    <p style="font-size:0.82rem;color:#718096;margin-bottom:18px">Deploy both services to Google Cloud Run. MCP server goes up first; client's <code style="color:#b794f4">MCP_SERVER_URL</code> then points to its Cloud Run URL.</p>
+    <div class="arch-box">
+<span class="highlight">Architecture on GCP</span>
+
+  Cloud Run: <span class="green-text">real-python-adtech-mcp-server</span>   port=$PORT  SSE transport
+                          ↑  MCP_SERVER_URL (SSE)
+  Cloud Run: <span class="blue-text">crewai-adtech-client</span>             port=$PORT  FastAPI
+
+  Both services are stateless containers on Cloud Run.
+  Client's MCP_SERVER_URL env var is set to the MCP server Cloud Run URL after Step 7.
+</div>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="gcp-step-item" onclick="toggleGCP('gcp1')">
+    <div class="gcp-step-header">
+      <span class="gcp-step-num">1</span>
+      <span class="gcp-step-title">Prerequisites — gcloud CLI &amp; Project Setup</span>
+      <span class="gcp-step-arrow" id="gcp1-arrow">▶</span>
+    </div>
+  </div>
+  <div class="uc-guide-body" id="gcp1-body">
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code># Install gcloud CLI (Mac)
+brew install --cask google-cloud-sdk
+
+# Login
+gcloud auth login
+
+# Set your GCP project
+gcloud config set project YOUR_PROJECT_ID
+
+# Enable required APIs
+gcloud services enable \
+  run.googleapis.com \
+  artifactregistry.googleapis.com \
+  secretmanager.googleapis.com \
+  cloudbuild.googleapis.com</code></div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="gcp-step-item" onclick="toggleGCP('gcp2')">
+    <div class="gcp-step-header">
+      <span class="gcp-step-num">2</span>
+      <span class="gcp-step-title">Create Artifact Registry Repository</span>
+      <span class="gcp-step-arrow" id="gcp2-arrow">▶</span>
+    </div>
+  </div>
+  <div class="uc-guide-body" id="gcp2-body">
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code>gcloud artifacts repositories create adtech-repo \
+  --repository-format=docker \
+  --location=asia-south1 \
+  --description="AdTech MCP images"
+
+# Authenticate Docker with Artifact Registry
+gcloud auth configure-docker asia-south1-docker.pkg.dev</code></div>
+    <div style="margin-top:10px;font-size:0.8rem;color:#718096">Replace <code style="color:#b794f4">asia-south1</code> with your preferred region throughout all steps.</div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="gcp-step-item" onclick="toggleGCP('gcp3')">
+    <div class="gcp-step-header">
+      <span class="gcp-step-num">3</span>
+      <span class="gcp-step-title">Fix MCP Server — $PORT env var + Cloud Run host-header (421)</span>
+      <span class="gcp-step-arrow" id="gcp3-arrow">▶</span>
+    </div>
+  </div>
+  <div class="uc-guide-body" id="gcp3-body">
+    <div style="margin-bottom:8px;font-size:0.82rem;color:#a0aec0">Two fixes needed in <code style="color:#b794f4">real-python-adtech-mcp-server/server.py</code>:</div>
+    <div style="margin-bottom:6px;font-size:0.78rem;font-weight:700;color:#68d391">Fix 1 — Read $PORT from env (Cloud Run injects it at runtime)</div>
+    <div style="margin-bottom:10px;font-size:0.78rem;font-weight:700;color:#63b3ed">Fix 2 — Disable FastMCP host-header validation on Cloud Run (prevents HTTP 421)</div>
+    <div style="margin-bottom:8px;font-size:0.78rem;color:#a0aec0">FastMCP auto-enables DNS rebinding protection for localhost, which rejects Cloud Run's Host header with 421. The <code style="color:#f6ad55">K_SERVICE</code> env var is always set by GCP on Cloud Run — use it to disable protection only in production, keeping localhost protection intact locally.</div>
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code>import os
+from mcp.server.transport_security import TransportSecuritySettings
+
+# Disable host-header validation on Cloud Run only (K_SERVICE is always set by GCP)
+# Locally (K_SERVICE not set) FastMCP keeps its default localhost protection
+_transport_security = (
+    TransportSecuritySettings(enable_dns_rebinding_protection=False)
+    if os.environ.get("K_SERVICE")
+    else None
+)
+mcp = FastMCP("adtech-mcp-server", transport_security=_transport_security)
+
+# In __main__:
+port = int(os.environ.get("PORT", 8085))
+uvicorn.run(mcp.sse_app(), host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="*")</code></div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="gcp-step-item" onclick="toggleGCP('gcp4')">
+    <div class="gcp-step-header">
+      <span class="gcp-step-num">4</span>
+      <span class="gcp-step-title">Create Dockerfile for MCP Server</span>
+      <span class="gcp-step-arrow" id="gcp4-arrow">▶</span>
+    </div>
+  </div>
+  <div class="uc-guide-body" id="gcp4-body">
+    <div style="margin-bottom:10px;font-size:0.82rem;color:#a0aec0">The MCP server has no Dockerfile. Create <code style="color:#b794f4">real-python-adtech-mcp-server/Dockerfile</code>:</div>
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code>FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY server.py .
+COPY apis/ ./apis/
+
+EXPOSE 8085
+CMD ["sh", "-c", "python server.py"]</code></div>
+    <div style="margin-top:10px;font-size:0.8rem;color:#718096">The CrewAI client already has a Dockerfile that reads <code style="color:#b794f4">$PORT</code> — no change needed there.</div>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="gcp-step-item" onclick="toggleGCP('gcp5')">
+    <div class="gcp-step-header">
+      <span class="gcp-step-num">5</span>
+      <span class="gcp-step-title">Store API Keys in Secret Manager</span>
+      <span class="gcp-step-arrow" id="gcp5-arrow">▶</span>
+    </div>
+  </div>
+  <div class="uc-guide-body" id="gcp5-body">
+    <div style="margin-bottom:10px;font-size:0.82rem;color:#a0aec0">Never pass <code style="color:#fc8181">GROQ_API_KEY</code> as a plain env var — store it in Secret Manager:</div>
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code># Store the secret
+echo -n "your_actual_groq_api_key" | \
+  gcloud secrets create GROQ_API_KEY --data-file=-
+
+# Verify it was stored
+gcloud secrets versions access latest --secret="GROQ_API_KEY"</code></div>
+  </div>
+
+  <!-- Step 6 -->
+  <div class="gcp-step-item" onclick="toggleGCP('gcp6')">
+    <div class="gcp-step-header">
+      <span class="gcp-step-num">6</span>
+      <span class="gcp-step-title">Build &amp; Push Both Images via Cloud Build</span>
+      <span class="gcp-step-arrow" id="gcp6-arrow">▶</span>
+    </div>
+  </div>
+  <div class="uc-guide-body" id="gcp6-body">
+    <div style="margin-bottom:10px;background:#0a1a10;border:1px solid #276749;border-radius:6px;padding:10px 14px;font-size:0.8rem;color:#a0aec0">
+      Uses <strong style="color:#68d391">Google Cloud Build</strong> — no Docker Desktop needed. Builds the image on GCP and pushes to Artifact Registry. Free up to 120 build-minutes/day.
+    </div>
+    <div style="margin-bottom:6px;font-size:0.8rem;font-weight:700;color:#68d391">Step 6a — Build &amp; Push MCP Server</div>
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code>cd /Users/ashish.kanchan/eclipse-workspace/GmailRepo/real-python-adtech-mcp-server && gcloud builds submit --tag asia-south1-docker.pkg.dev/adtech-support-poc/adtech-repo/adtech-mcp-server:latest --project adtech-support-poc</code></div>
+    <div style="margin-top:6px;font-size:0.78rem;color:#fc8181">⚠ Always rebuild before redeploying — deploy only re-runs the existing image. Without a fresh build, code changes are not picked up.</div>
+    <div style="margin-bottom:6px;margin-top:12px;font-size:0.8rem;font-weight:700;color:#63b3ed">Step 6b — Build &amp; Push CrewAI Client</div>
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code>gcloud builds submit \
+  /Users/ashish.kanchan/eclipse-workspace/GmailRepo/crewai-adtech-mcp-client \
+  --tag="asia-south1-docker.pkg.dev/adtech-support-poc/adtech-repo/crewai-adtech-client:latest" \
+  --ignore-file=/Users/ashish.kanchan/eclipse-workspace/GmailRepo/crewai-adtech-mcp-client/.gitignore</code></div>
+    <div style="margin-top:10px;font-size:0.78rem;color:#718096"><code style="color:#f6ad55">--ignore-file</code> skips <code>venv/</code> and <code>chroma_db/</code> so only source files are uploaded to Cloud Build.</div>
+  </div>
+
+  <!-- Step 7 -->
+  <div class="gcp-step-item" onclick="toggleGCP('gcp7')">
+    <div class="gcp-step-header">
+      <span class="gcp-step-num">7</span>
+      <span class="gcp-step-title">Deploy MCP Server to Cloud Run</span>
+      <span class="gcp-step-arrow" id="gcp7-arrow">▶</span>
+    </div>
+  </div>
+  <div class="uc-guide-body" id="gcp7-body">
+    <div style="margin-bottom:10px;background:#1a1030;border:1px solid #553c9a;border-radius:6px;padding:10px 14px;font-size:0.8rem;color:#a0aec0">
+      <strong style="color:#b794f4">Deploy MCP server first</strong> — the client needs its URL in Step 8.
+    </div>
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code>gcloud run deploy adtech-mcp-server --image asia-south1-docker.pkg.dev/adtech-support-poc/adtech-repo/adtech-mcp-server:latest --platform managed --region asia-south1 --allow-unauthenticated --port 8085 --project adtech-support-poc</code></div>
+    <div style="margin-top:12px;font-size:0.82rem;color:#a0aec0">Then capture the MCP server URL — needed for Step 8:</div>
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code>MCP_SERVER_URL=$(gcloud run services describe adtech-mcp-server \
+  --region=asia-south1 \
+  --format='value(status.url)')
+
+echo "${MCP_SERVER_URL}/sse"
+# e.g. https://adtech-mcp-server-xxxx-el.a.run.app/sse</code></div>
+    <div style="margin-top:10px;font-size:0.8rem;color:#718096">
+      <code style="color:#f6ad55">--timeout=3600</code> is required — SSE keeps connections open; default 60s will break it.<br>
+      <code style="color:#f6ad55">--min-instances=1</code> prevents cold starts from killing idle SSE connections.
+    </div>
+  </div>
+
+  <!-- Step 8 -->
+  <div class="gcp-step-item" onclick="toggleGCP('gcp8')">
+    <div class="gcp-step-header">
+      <span class="gcp-step-num">8</span>
+      <span class="gcp-step-title">Deploy CrewAI Client to Cloud Run</span>
+      <span class="gcp-step-arrow" id="gcp8-arrow">▶</span>
+    </div>
+  </div>
+  <div class="uc-guide-body" id="gcp8-body">
+    <div style="margin-bottom:10px;font-size:0.82rem;color:#a0aec0">Grant the Cloud Run service account access to your secret:</div>
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code>SA_EMAIL=$(gcloud run services describe adtech-mcp-server \
+  --region=asia-south1 \
+  --format='value(spec.template.spec.serviceAccountName)')
+
+gcloud secrets add-iam-policy-binding GROQ_API_KEY \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/secretmanager.secretAccessor"</code></div>
+    <div style="margin-top:12px;font-size:0.82rem;color:#a0aec0">Deploy the client — replace <code style="color:#f6ad55">MCP_SERVER_URL</code> with the URL captured in Step 7:</div>
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code>gcloud run deploy crewai-adtech-client \
+  --image="asia-south1-docker.pkg.dev/adtech-support-poc/adtech-repo/crewai-adtech-client:latest" \
+  --region=asia-south1 \
+  --platform=managed \
+  --allow-unauthenticated \
+  --timeout=300 \
+  --concurrency=10 \
+  --min-instances=1 \
+  --port=8090 \
+  --set-secrets="GROQ_API_KEY=GROQ_API_KEY:latest" \
+  --set-env-vars="LLM_PROVIDER=groq,GROQ_MODEL=llama-3.3-70b-versatile,MCP_SERVER_URL=${MCP_SERVER_URL}/sse,KB_PROVIDER=local,KB_DOCS_DIR=./kb-docs,CHROMA_DB_PATH=./chroma_db,DATABASE_URL=sqlite+aiosqlite:///./crew_tickets.db,CREW_VERBOSE=false,CREW_MAX_ITER=10,CORS_ORIGINS=*"</code></div>
+  </div>
+
+  <!-- Step 9 -->
+  <div class="gcp-step-item" onclick="toggleGCP('gcp9')">
+    <div class="gcp-step-header">
+      <span class="gcp-step-num">9</span>
+      <span class="gcp-step-title">Verify Deployment</span>
+      <span class="gcp-step-arrow" id="gcp9-arrow">▶</span>
+    </div>
+  </div>
+  <div class="uc-guide-body" id="gcp9-body">
+    <div style="margin-bottom:6px;font-size:0.8rem;font-weight:700;color:#68d391">Get the client URL</div>
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code>CLIENT_URL=$(gcloud run services describe crewai-adtech-client \
+  --region=asia-south1 --format='value(status.url)')
+
+echo $CLIENT_URL</code></div>
+    <div style="margin-top:12px;margin-bottom:6px;font-size:0.8rem;font-weight:700;color:#63b3ed">Health check — mcpToolsLoaded should be &gt; 0</div>
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code>curl "${CLIENT_URL}/api/v1/crew/health-check"</code></div>
+    <div style="margin-top:12px;margin-bottom:6px;font-size:0.8rem;font-weight:700;color:#b794f4">Test a live query</div>
+    <div class="gcp-code-wrap"><button class="gcp-copy-btn" onclick="copyCode(this)">Copy</button><code>curl -X POST "${CLIENT_URL}/api/v1/crew/query" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Campaign CMP-4491 has zero impressions", "campaignId": "CMP-4491"}'</code></div>
+    <div style="margin-top:10px;font-size:0.8rem;color:#718096">Open <code style="color:#b794f4">$CLIENT_URL</code> in a browser to access the full UI.</div>
+  </div>
+
+  <!-- Production Limitations -->
+  <div class="card" style="margin-top:8px">
+    <h2>Known Limitations to Fix Before Production</h2>
+    <div style="background:#0d1117;border:1px solid #2d3748;border-radius:8px;overflow:hidden;font-size:0.82rem">
+      <div style="display:grid;grid-template-columns:180px 1fr 1fr;background:#161b22;padding:8px 14px;font-size:0.72rem;font-weight:700;color:#718096;text-transform:uppercase;gap:8px">
+        <div>Issue</div><div>Problem</div><div>Fix</div>
+      </div>
+      <div style="display:grid;grid-template-columns:180px 1fr 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:start">
+        <span style="color:#fc8181;font-weight:600">SQLite on Cloud Run</span>
+        <span style="color:#a0aec0;font-size:0.78rem"><code>crew_tickets.db</code> is lost on every redeploy / container restart</span>
+        <span style="color:#68d391;font-size:0.78rem">Replace with Cloud SQL (PostgreSQL) — set <code>DATABASE_URL=postgresql+asyncpg://...</code></span>
+      </div>
+      <div style="display:grid;grid-template-columns:180px 1fr 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:start">
+        <span style="color:#fc8181;font-weight:600">ChromaDB on disk</span>
+        <span style="color:#a0aec0;font-size:0.78rem"><code>chroma_db/</code> is ephemeral — KB is rebuilt from scratch each cold start</span>
+        <span style="color:#68d391;font-size:0.78rem">Use Vertex AI Search (<code>KB_PROVIDER=gcp</code>) or mount Cloud Storage FUSE</span>
+      </div>
+      <div style="display:grid;grid-template-columns:180px 1fr 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:start">
+        <span style="color:#f6ad55;font-weight:600">SSE timeout</span>
+        <span style="color:#a0aec0;font-size:0.78rem">Long SSE connections may drop on load balancer resets</span>
+        <span style="color:#68d391;font-size:0.78rem">Already handled: <code>--timeout=3600</code> on MCP server deploy</span>
+      </div>
+      <div style="display:grid;grid-template-columns:180px 1fr 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:start">
+        <span style="color:#f6ad55;font-weight:600">Cold starts</span>
+        <span style="color:#a0aec0;font-size:0.78rem">First request after idle is slow (~3–5s)</span>
+        <span style="color:#68d391;font-size:0.78rem">Already handled: <code>--min-instances=1</code> on both services</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Port reference -->
+  <div class="card">
+    <h2>Service Port Reference</h2>
+    <div style="background:#0d1117;border:1px solid #2d3748;border-radius:8px;overflow:hidden;font-size:0.82rem">
+      <div style="display:grid;grid-template-columns:1fr 80px 1fr;background:#161b22;padding:8px 14px;font-size:0.72rem;font-weight:700;color:#718096;text-transform:uppercase;gap:8px">
+        <div>Service</div><div>Port</div><div>Notes</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 80px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <code style="color:#68d391">real-python-adtech-mcp-server</code>
+        <span style="color:#b794f4;font-family:monospace">8085</span>
+        <span style="color:#718096;font-size:0.78rem">SSE MCP server — timeout must be 3600s</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 80px 1fr;padding:9px 14px;border-top:1px solid #1e2533;gap:8px;align-items:center">
+        <code style="color:#63b3ed">crewai-adtech-client</code>
+        <span style="color:#b794f4;font-family:monospace">8090</span>
+        <span style="color:#718096;font-size:0.78rem">FastAPI + CrewAI — connects to MCP server via SSE</span>
+      </div>
+    </div>
+  </div>
+
+</div>
 </body>
 </html>
