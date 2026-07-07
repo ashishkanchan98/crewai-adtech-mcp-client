@@ -200,6 +200,7 @@
 .cat-storage{background:#ccfbf1;color:#0f766e}
 .cat-rag{background:#d1fae5;color:#065f46}
 .cat-dense{background:#dbeafe;color:#1e40af}
+.cat-lang{background:#fef9c3;color:#854d0e}
 .faq-arrow{font-size:12px;color:#aaa;transition:transform .2s;flex-shrink:0}
 .faq-arrow.open{transform:rotate(180deg)}
 .faq-a{display:none;padding:0 18px 16px;border-top:1px solid #f0f0f0}
@@ -646,6 +647,7 @@
       <button class="faq-group-btn" onclick="filterFAQ('storage',this)">Storage &amp; DB</button>
       <button class="faq-group-btn" onclick="filterFAQ('rag',this)">RAG</button>
       <button class="faq-group-btn" onclick="filterFAQ('dense',this)">Dense/Sparse (BM25)</button>
+      <button class="faq-group-btn" onclick="filterFAQ('lang',this)">LangChain &amp; LangGraph</button>
     </div>
 
     <div class="faq-item" data-cat="react"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is the ReAct loop and why does every agent use it?</span><span class="faq-cat cat-react">ReAct Loop</span><span class="faq-arrow">▼</span></div><div class="faq-a"><p><strong>ReAct</strong> (Reasoning + Acting) is the cognitive pattern each agent follows. Instead of answering in one shot, the agent alternates between thinking and doing:</p><ul><li><strong>Thought</strong> — LLM reasons: "I need to check the hourly spend curve first."</li><li><strong>Action</strong> — calls an MCP tool: <code>getHourlySpendCurve(campaignId="C123", days=3)</code></li><li><strong>Observation</strong> — reads the tool's JSON return value</li><li><strong>Reflection</strong> — updates understanding: "Budget hit at 10:14am — this is a pacing issue."</li></ul><p>It loops until the task's <code>expected_output</code> is satisfied or <code>max_iter</code> is reached. More reliable than a one-shot prompt because the agent can self-correct mid-task.</p></div></div>
@@ -1387,6 +1389,561 @@ SPLADE (neural network expands the sparse vector):
       </tbody>
     </table>
     <div class="faq-highlight">For this project: SPLADE is the most advanced option but adds complexity. The practical upgrade path is: dense-only (current) → hybrid dense + BM25 (add <code>rank_bm25</code>) → hybrid dense + SPLADE (if Qdrant or Weaviate is the vector DB). Start with BM25 hybrid — it covers 80% of the gap with minimal code change.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="lang"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is LangChain — how does it compare to CrewAI and when would you use it instead?</span><span class="faq-cat cat-lang">LangChain</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p><strong>LangChain</strong> is a framework for building LLM-powered applications. It provides composable primitives: chains (sequential steps), agents (ReAct loops), retrievers (RAG), memory, and tool integrations. CrewAI is built on top of LangChain's agent primitives.</p>
+
+    <p><strong>Core LangChain Concepts</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">LangChain building blocks:
+
+  PromptTemplate   — reusable prompt with variables
+  LLM / ChatModel  — wrapper around any LLM (OpenAI, Groq, Vertex, Anthropic)
+  Chain            — PromptTemplate | LLM | OutputParser  (pipe syntax)
+  Tool             — function the agent can call (@tool decorator)
+  Agent            — LLM + tools in a ReAct loop
+  Retriever        — vector store query interface
+  Memory           — conversation history injected into prompt
+
+  # Simplest chain:
+  chain = prompt | llm | StrOutputParser()
+  result = chain.invoke({"query": "why are bids zero?"})
+
+  # Agent with tools:
+  agent = create_react_agent(llm, tools, prompt)
+  agent_executor = AgentExecutor(agent=agent, tools=tools)
+  agent_executor.invoke({"input": "diagnose campaign C123"})</pre>
+
+    <p><strong>LangChain vs CrewAI — Side by Side</strong></p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Dimension</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">LangChain</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">CrewAI</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Abstraction level</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Low — you compose primitives manually</td><td style="padding:7px 12px;border:1px solid #cbd5e0">High — Agent + Task + Crew pattern</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Multi-agent</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Manual — you wire agents together</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Built-in — Crew manages agent collaboration</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Role/persona</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Via system prompt — no native concept</td><td style="padding:7px 12px;border:1px solid #cbd5e0">First-class — role, goal, backstory per agent</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Task context chaining</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Manual — pass outputs explicitly</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Built-in — <code>context=[prev_task]</code></td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">RAG integration</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Rich — LCEL chains, many retrievers</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Via tool — agent calls KB search tool</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Flexibility</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Maximum — any pattern you can imagine</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Opinionated — Crew/Agent/Task model</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Best for</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Custom pipelines, RAG apps, chatbots</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Role-based multi-agent workflows</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>When to Use LangChain over CrewAI</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Use LangChain when:
+  ✅ Building a RAG chatbot (no multi-agent needed)
+  ✅ You need fine-grained control over every step in the chain
+  ✅ Single-agent with complex retrieval logic
+  ✅ You want LCEL (LangChain Expression Language) streaming pipelines
+  ✅ Integrating with LangSmith for tracing/eval
+
+Use CrewAI when:
+  ✅ Multiple specialized agents with distinct roles (this project)
+  ✅ Tasks that chain outputs between agents
+  ✅ You want the Agent/Task/Crew abstraction without wiring manually
+  ✅ Parallel async task execution out of the box</pre>
+    <div class="faq-highlight">CrewAI uses LangChain under the hood — LangChain tools work natively in CrewAI. If you need a LangChain retriever inside a CrewAI agent, wrap it as a <code>BaseTool</code> exactly like <code>KBSearchTool</code> in this project.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="lang"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is LangGraph — how is it different from LangChain and CrewAI?</span><span class="faq-cat cat-lang">LangGraph</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p><strong>LangGraph</strong> is a library (part of the LangChain ecosystem) for building <strong>stateful, graph-based agent workflows</strong>. Where LangChain gives you linear chains and CrewAI gives you sequential/parallel task crews, LangGraph gives you a <strong>directed graph of nodes</strong> where each node is an agent step and edges encode conditional branching logic.</p>
+
+    <p><strong>Core Concept — State Machine over a Graph</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">LangGraph workflow = nodes + edges + shared state
+
+  Node     = a function or LLM call that reads/writes shared state
+  Edge     = transition between nodes (unconditional or conditional)
+  State    = TypedDict shared across all nodes (like a blackboard)
+  Graph    = StateGraph compiled into a runnable
+
+  Example: AdTech diagnosis workflow as a LangGraph
+
+  State = {query, campaign_id, triage_result, deal_result, final_report}
+
+  Nodes:
+    triage_node    → calls LLM with KB context, writes triage_result
+    deal_node      → calls deal check tool, writes deal_result
+    audience_node  → calls audience check tool
+    synthesis_node → reads all results, writes final_report
+    end_node       → returns final_report to caller
+
+  Edges:
+    START → triage_node
+    triage_node → deal_node          (always)
+    triage_node → audience_node      (always, parallel branch)
+    deal_node   → synthesis_node
+    audience_node → synthesis_node
+    synthesis_node → END
+
+  Conditional edge example:
+    triage_node → ivt_node    IF triage_result contains "fraud"
+    triage_node → deal_node   OTHERWISE</pre>
+
+    <p><strong>LangGraph vs LangChain vs CrewAI</strong></p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Feature</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">LangChain</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">LangGraph</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">CrewAI</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Execution model</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Linear chain</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Directed graph (cyclic OK)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Sequential / parallel tasks</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Loops / cycles</td><td style="padding:7px 12px;border:1px solid #cbd5e0">❌ No</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ Yes — self-correcting loops</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Via max_iter only</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Conditional branching</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Manual if/else in code</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ First-class conditional edges</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Via router agent</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Shared state</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Manual — pass between chains</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ TypedDict state across all nodes</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Via task context</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Human-in-the-loop</td><td style="padding:7px 12px;border:1px solid #cbd5e0">❌</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ interrupt_before/after any node</td><td style="padding:7px 12px;border:1px solid #cbd5e0">❌</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Persistence / resume</td><td style="padding:7px 12px;border:1px solid #cbd5e0">❌</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ Checkpointer (SQLite/Redis)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">❌</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Observability</td><td style="padding:7px 12px;border:1px solid #cbd5e0">LangSmith</td><td style="padding:7px 12px;border:1px solid #cbd5e0">LangSmith + graph visualizer</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Built-in verbose logging</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>LangGraph's Killer Feature — Cycles (Self-Correcting Loops)</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Example: diagnosis agent that retries if confidence is low
+
+  triage_node
+      ↓
+  check_confidence  ──── confidence < 0.7 ──→  search_more_node ──┐
+      │                                                            │
+      └──── confidence >= 0.7 ──→ synthesis_node → END            │
+                                                                   │
+      ←───────────────────────────────────────────────────────────┘
+      (loop back to check_confidence with richer context)
+
+CrewAI cannot model this — once a task is done it does not loop back.
+LangChain cannot model this — chains are linear.
+LangGraph encodes it as a conditional edge: if state["confidence"] < 0.7 → search_more.</pre>
+
+    <p><strong>When to Use LangGraph over CrewAI</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Use LangGraph when:
+  ✅ Workflow needs conditional branching (if fraud → go to IVT node)
+  ✅ Self-correcting loops (retry until confidence threshold met)
+  ✅ Human-in-the-loop approval before taking action
+  ✅ Long-running workflows that must survive restarts (checkpointer)
+  ✅ Complex state that all agents share and mutate
+
+Use CrewAI when:
+  ✅ Fixed set of specialized agents with clear roles
+  ✅ Linear or parallel task chains (no dynamic branching needed)
+  ✅ Faster to ship — less boilerplate than defining a StateGraph
+  ✅ MCP tool integration (this project)</pre>
+
+    <div class="faq-highlight">LangGraph is the right choice when your workflow is a <strong>state machine</strong> — when "what happens next" depends on intermediate results. CrewAI is the right choice when the task chain is known upfront and agents just need to collaborate. This project fits CrewAI — the 7-agent chain is fixed at design time and doesn't need runtime branching beyond the keyword router.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="lang"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is LCEL (LangChain Expression Language) and how does it make chains composable?</span><span class="faq-cat cat-lang">LangChain</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p><strong>LCEL</strong> is LangChain's pipe-operator syntax for composing chains. Any object that implements <code>Runnable</code> (LLMs, prompts, retrievers, parsers, tools) can be chained with <code>|</code> — the output of the left becomes the input of the right. The result is itself a <code>Runnable</code> that supports streaming, async, batching, and retry out of the box.</p>
+
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0"># Classic approach (verbose):
+prompt_value = prompt.format(query=query)
+llm_output = llm.invoke(prompt_value)
+result = parser.parse(llm_output)
+
+# LCEL — same thing, one line:
+chain = prompt | llm | StrOutputParser()
+result = chain.invoke({"query": "why are bids zero?"})
+
+# RAG chain with retriever:
+rag_chain = (
+    {"context": retriever, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+answer = rag_chain.invoke("deal D456 zero bids")
+
+# Streaming (works automatically on any LCEL chain):
+for chunk in rag_chain.stream("deal D456 zero bids"):
+    print(chunk, end="", flush=True)
+
+# Async batching:
+answers = await rag_chain.abatch(["query1", "query2", "query3"])</pre>
+
+    <p><strong>Why LCEL Matters for RAG</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Full hybrid RAG pipeline as one LCEL chain:
+
+from langchain_community.retrievers import BM25Retriever
+from langchain.retrievers import EnsembleRetriever
+
+# Build retrievers
+dense_retriever  = chroma_db.as_retriever(search_kwargs={"k": 5})
+sparse_retriever = BM25Retriever.from_documents(kb_docs, k=5)
+
+# Merge with RRF weights (0.5 each = equal weight)
+hybrid_retriever = EnsembleRetriever(
+    retrievers=[dense_retriever, sparse_retriever],
+    weights=[0.5, 0.5]   # internally applies RRF
+)
+
+# Full RAG chain:
+rag_chain = (
+    {"context": hybrid_retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+# Invoke:
+answer = rag_chain.invoke("deal D456 zero bids")
+# → retrieves via RRF hybrid → formats docs → LLM generates grounded answer</pre>
+
+    <div class="faq-highlight">LangChain's <code>EnsembleRetriever</code> implements RRF internally — passing <code>weights=[0.5, 0.5]</code> is equivalent to the manual RRF formula Σ 1/(k + rank_i). This is the fastest path to adding hybrid search to this project without implementing RRF from scratch.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="lang"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How would you rewrite this project's CrewAI pipeline in LangGraph — what would change?</span><span class="faq-cat cat-lang">LangGraph</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p>This is a useful thought experiment. The current CrewAI UC1 pipeline (Triage → Campaign → Audience → Deal → Synthesis) maps directly to a LangGraph <code>StateGraph</code>. Here's what the rewrite looks like and what you gain/lose.</p>
+
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">from langgraph.graph import StateGraph, END
+from typing import TypedDict
+
+# Shared state — replaces CrewAI's task context chaining
+class DiagnosisState(TypedDict):
+    query: str
+    campaign_id: str
+    triage_result: str
+    campaign_result: str
+    audience_result: str
+    deal_result: str
+    final_report: str
+    use_case: str          # for conditional routing
+
+# Node functions (replace CrewAI Agent + Task pairs)
+def triage_node(state: DiagnosisState) -> DiagnosisState:
+    result = triage_llm.invoke({"query": state["query"]})
+    return {**state, "triage_result": result, "use_case": classify(result)}
+
+def campaign_node(state: DiagnosisState) -> DiagnosisState:
+    result = campaign_llm.invoke({"context": state["triage_result"], ...})
+    return {**state, "campaign_result": result}
+
+def synthesis_node(state: DiagnosisState) -> DiagnosisState:
+    result = synthesis_llm.invoke({
+        "triage": state["triage_result"],
+        "campaign": state["campaign_result"],
+        "audience": state["audience_result"],
+        "deal": state["deal_result"],
+    })
+    return {**state, "final_report": result}
+
+# Build graph
+graph = StateGraph(DiagnosisState)
+graph.add_node("triage",    triage_node)
+graph.add_node("campaign",  campaign_node)
+graph.add_node("audience",  audience_node)
+graph.add_node("deal",      deal_node)
+graph.add_node("synthesis", synthesis_node)
+
+# Edges (replaces CrewAI Process.sequential)
+graph.set_entry_point("triage")
+graph.add_edge("triage",   "campaign")
+graph.add_edge("triage",   "audience")   # parallel branch
+graph.add_edge("triage",   "deal")       # parallel branch
+graph.add_edge("campaign", "synthesis")
+graph.add_edge("audience", "synthesis")
+graph.add_edge("deal",     "synthesis")
+graph.add_edge("synthesis", END)
+
+# Conditional routing (replaces CrewAI keyword router)
+graph.add_conditional_edges("triage", lambda s: s["use_case"], {
+    "delivery_failure": "campaign",
+    "ivt_fraud":        "ivt_node",
+    "deal_issue":       "deal",
+})
+
+app = graph.compile()
+result = app.invoke({"query": "deal D456 zero bids", "campaign_id": "C123"})</pre>
+
+    <p><strong>CrewAI → LangGraph: What Changes</strong></p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">CrewAI concept</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">LangGraph equivalent</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0"><code>Agent(role, goal, backstory)</code></td><td style="padding:7px 12px;border:1px solid #cbd5e0">Node function + system prompt encoding the role</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0"><code>Task(description, context=[])</code></td><td style="padding:7px 12px;border:1px solid #cbd5e0">Node reads from <code>state</code> TypedDict</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0"><code>Crew(Process.sequential)</code></td><td style="padding:7px 12px;border:1px solid #cbd5e0"><code>graph.add_edge()</code> defines execution order</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0"><code>classify_query()</code> router</td><td style="padding:7px 12px;border:1px solid #cbd5e0"><code>add_conditional_edges()</code> — first-class graph feature</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0"><code>async_execution=True</code></td><td style="padding:7px 12px;border:1px solid #cbd5e0">Parallel branches via multiple edges from same node</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">MCP tools via <code>BaseTool</code></td><td style="padding:7px 12px;border:1px solid #cbd5e0">Same — LangChain tools work inside LangGraph nodes</td></tr>
+      </tbody>
+    </table>
+
+    <div class="faq-highlight">The LangGraph version gains: conditional routing as a graph primitive, human-in-the-loop support, checkpoint/resume on crashes, and a visual graph debugger in LangSmith. It loses: the opinionated Agent persona/role system that makes CrewAI prompts readable. For this project, the CrewAI version ships faster — LangGraph pays off when the routing logic becomes complex enough that a state machine is clearer than a keyword router function.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="lang"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">What is LangSmith and how do you use it to debug and evaluate this project's agents?</span><span class="faq-cat cat-lang">LangChain</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p><strong>LangSmith</strong> is LangChain's observability and evaluation platform. It traces every LLM call, tool call, chain step, and token count — giving you a full timeline of what each agent did and why. Free tier available.</p>
+
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0"># Enable in .env (no code changes needed for CrewAI):
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=ls__your_key_here
+LANGCHAIN_PROJECT=adtech-mcp-client
+
+# Every crew.kickoff() now sends a trace to LangSmith automatically.
+# You can see:
+#   - Which agent ran, which task
+#   - Exact prompt sent to LLM (with injected KB context)
+#   - LLM response + token count + latency
+#   - Which MCP tool was called and what it returned
+#   - Total cost per request (if using OpenAI/Groq pricing)
+
+# Evaluate RAG quality (add to your test suite):
+from langsmith import Client
+from langsmith.evaluation import evaluate, LangChainStringEvaluator
+
+client = Client()
+evaluator = LangChainStringEvaluator("qa", config={"llm": eval_llm})
+
+results = evaluate(
+    lambda inputs: rag_chain.invoke(inputs["question"]),
+    data="adtech-rag-test-dataset",   # dataset you create in LangSmith UI
+    evaluators=[evaluator],
+    experiment_prefix="hybrid-rag-v1"
+)</pre>
+
+    <p><strong>What to Look for in Traces</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Key signals in a LangSmith trace for this project:
+
+  ✅ KB search returned 3 results with score > 0.5  → retrieval healthy
+  ❌ KB search returned 3 results with score < 0.3  → garbage context injected
+     → fix: add score threshold in _kb_search_local()
+
+  ✅ Triage agent used searchKnowledgeBase on step 1  → ReAct working
+  ❌ Triage agent answered without calling any tool    → agent bypassed KB
+     → fix: strengthen task description to require KB consultation
+
+  ✅ Total tokens per request < 4000                  → cost-efficient
+  ❌ Total tokens per request > 10000                 → context bloat
+     → fix: reduce context= chain length or chunk size</pre>
+
+    <div class="faq-highlight">LangSmith is the fastest way to go from "the agent gave a wrong answer" to "the agent gave a wrong answer because it retrieved this irrelevant chunk and then hallucinated past it." Without a tracer, debugging multi-agent failures is guesswork. Add the three env vars above before the first production query.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="lang"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">Classic RAG vs Graph RAG vs Agentic RAG — how do the three architectures differ and when does each win?</span> — how do the three architectures differ and when does each win?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p>Three generations of RAG architecture, each solving a failure mode of the previous one. Classic RAG is the baseline; Graph RAG adds relational reasoning; Agentic RAG adds multi-step planning. They are not mutually exclusive — production systems often combine all three.</p>
+
+    <p><strong>Classic RAG — The Baseline</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">User query
+  → embed query → vector search → top-k chunks → inject into prompt → LLM answer
+
+Knowledge structure: flat chunk pool (no relationships between chunks)
+Retrieval unit:      fixed-size text chunk (paragraph, page, sentence)
+Retrieval logic:     one-shot cosine similarity (or + BM25 hybrid)
+Reasoning:           entirely inside the LLM prompt — one inference call
+
+Example query it handles well:
+  "What causes zero bids on a PMP deal?"
+  → retrieves the PMP runbook chunk → LLM answers directly
+
+Example query it fails on:
+  "Which deals share the same floor price issue as deal D456?"
+  → retrieves D456 chunk only — doesn't know D789 and D012 are related
+  → answer is incomplete; the relationship lives between documents, not inside one</pre>
+
+    <p><strong>Graph RAG — Relational Knowledge</strong></p>
+    <p>Builds a <strong>knowledge graph</strong> on top of (or instead of) a flat vector index. Entities (deals, campaigns, seats, buyers) are nodes; relationships (shares_floor_price_with, blocked_by, owned_by) are edges. Retrieval traverses the graph — not just similarity.</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">User query
+  → entity extraction ("D456", "floor price")
+  → graph traversal: D456 → [shares_floor_with] → D789, D012
+  → fetch node summaries + community summaries
+  → inject into prompt → LLM answer
+
+Knowledge structure: entity graph (nodes + typed edges + community clusters)
+Retrieval unit:      entity + its neighborhood (1–2 hops)
+Retrieval logic:     graph traversal + optional vector search on node embeddings
+Reasoning:           graph walk is deterministic; LLM synthesizes over retrieved subgraph
+
+Example query it handles well (Classic RAG fails):
+  "Which deals share the same floor price issue as deal D456?"
+  → traverses D456 → floor_price_group → [D456, D789, D012]
+  → answers with all three deals + shared root cause
+
+Graph RAG implementations:
+  Microsoft GraphRAG  — community detection (Leiden algorithm), global/local search modes
+  Neo4j + LangChain   — Cypher query generation from natural language
+  LlamaIndex          — KnowledgeGraphIndex with NetworkX backend</pre>
+
+    <p><strong>Agentic RAG — Multi-Step Planning</strong></p>
+    <p>The LLM <em>plans</em> its own retrieval strategy. Instead of one fixed retrieve → answer step, an agent iterates: searches, reads results, decides what else it needs, searches again, synthesizes. <strong>This project uses Agentic RAG</strong> — the Triage agent autonomously calls <code>searchKnowledgeBase()</code> as an Action in its ReAct loop.</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">User query
+  → Agent Thought: "I need to check the deal runbook and the seat eligibility guide"
+  → Action 1: searchKnowledgeBase("PMP deal zero bids")        ← retrieval #1
+  → Observation: [PMP runbook, deal checklist]
+  → Agent Thought: "Floor price looks fine. Need to check seat eligibility."
+  → Action 2: searchKnowledgeBase("seat eligibility SSP block") ← retrieval #2
+  → Observation: [seat eligibility runbook]
+  → Agent Thought: "Both found. Ready to synthesize."
+  → Final Answer: ranked action plan citing both runbooks
+
+Knowledge structure: same as Classic RAG (flat chunks), but agent decides what to retrieve
+Retrieval unit:      agent-chosen query per iteration
+Retrieval logic:     agent formulates queries based on intermediate findings
+Reasoning:           multi-step; agent self-corrects between retrievals
+
+Key distinction from Classic RAG:
+  Classic RAG: one query → one retrieval → one answer
+  Agentic RAG: one query → N retrievals → synthesis (N decided at runtime)</pre>
+
+    <p><strong>Three-Way Comparison</strong></p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Dimension</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Classic RAG</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Graph RAG</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Agentic RAG</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Knowledge model</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Flat chunks</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Entity graph + edges</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Flat chunks (agent decides)</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Retrieval steps</td><td style="padding:7px 12px;border:1px solid #cbd5e0">1 (fixed)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">1–2 (graph + optional vector)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">N (agent-determined)</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Handles relationships</td><td style="padding:7px 12px;border:1px solid #cbd5e0">❌ No</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ Yes (graph traversal)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Partially (if agent queries for it)</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Multi-hop queries</td><td style="padding:7px 12px;border:1px solid #cbd5e0">❌ No</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ Yes (graph walk)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ Yes (iterative retrieval)</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Setup complexity</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Low</td><td style="padding:7px 12px;border:1px solid #cbd5e0">High (NER, graph build, index)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Medium (agent + tool design)</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Latency</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Lowest</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Medium</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Highest (N LLM calls)</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Best for</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Single-doc Q&amp;A, FAQs</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Cross-entity analysis, global summaries</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Open-ended diagnosis, tool-calling agents</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Used in this project</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Base retrieval layer</td><td style="padding:7px 12px;border:1px solid #cbd5e0">❌ Not implemented</td><td style="padding:7px 12px;border:1px solid #cbd5e0">✅ Triage Agent ReAct loop</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>Query Type → Right Architecture</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">"What causes zero bids on a PMP deal?"
+  → Classic RAG  ✅  (one document, direct answer)
+
+"Which campaigns share the same audience segment as campaign C123?"
+  → Graph RAG    ✅  (relationship query: C123 → [shared_segment] → C456, C789)
+
+"My pixel isn't firing on iOS — diagnose and give me a fix plan."
+  → Agentic RAG  ✅  (agent searches pixel docs, then iOS-specific docs, then synthesizes)
+
+"Summarize all deal issues across our entire buyer portfolio."
+  → Graph RAG    ✅  (community summary over buyer → deal → issue graph)
+  → Agentic RAG  ✅  (agent iterates over all buyers, aggregates findings)</pre>
+
+    <div class="faq-highlight">Upgrade path for this project: Classic RAG (current) → add BM25 hybrid + RRF → add score threshold + re-ranker → add Agentic multi-query (already partially done via ReAct) → add Graph RAG if cross-entity queries become common. Each step is independent — Graph RAG is the most expensive to add but the only one that handles "which X are related to Y" queries correctly.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">RAG vs CAG — what is Cache-Augmented Generation and when should you use one over the other?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p><strong>RAG (Retrieval-Augmented Generation)</strong> retrieves relevant document chunks at query time and injects them into the prompt. <strong>CAG (Cache-Augmented Generation)</strong> skips retrieval entirely — it preloads the <em>entire</em> knowledge base into the LLM's KV cache once, then answers every query from that cached context.</p>
+
+    <p><strong>Architecture Comparison</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">RAG — retrieval at query time:
+  User query
+    → embed query (MiniLM, ~50ms)
+    → vector search ChromaDB (top-3 chunks)
+    → inject chunks into prompt
+    → LLM generates answer
+
+  Pipeline: Query → Embed → Retrieve → Augment → Generate
+
+CAG — preloaded KV cache:
+  Startup (once):
+    → load ALL KB documents into LLM context window
+    → LLM computes KV cache for the full KB
+    → cache stored in GPU memory
+
+  User query
+    → append query to cached context
+    → LLM generates answer (cache already warm)
+
+  Pipeline: Query → Generate  (retrieval step is gone)</pre>
+
+    <p><strong>The KV Cache — What CAG Actually Exploits</strong></p>
+    <p>Modern LLMs (Gemini 1.5 Pro: 1M tokens, GPT-4o: 128K, Claude: 200K) can store their attention computation (Keys + Values) for a fixed prefix. If your entire KB is that prefix, every new query appends to it without re-computing the KB's attention — only the new query tokens are processed fresh.</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">KV cache hit (CAG):
+  [  KB prefix — cached, not recomputed  ] [ new query tokens ]
+  ←————————————————————————————————————→  ←————————————————→
+         already in GPU memory                 computed now
+  Cost: O(query_tokens)  ← cheap
+
+No cache (RAG with injected chunks):
+  [ system prompt ] [ retrieved chunk 1 ] [ chunk 2 ] [ chunk 3 ] [ query ]
+  ←————————————————————————————————————————————————————————————————————————→
+                    all recomputed every request
+  Cost: O(prompt_tokens + chunk_tokens + query_tokens)  ← more expensive per call</pre>
+
+    <p><strong>Head-to-Head Comparison</strong></p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0">
+      <thead><tr style="background:#2d3748;color:#fff"><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">Dimension</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">RAG</th><th style="padding:7px 12px;text-align:left;border:1px solid #4a5568">CAG</th></tr></thead>
+      <tbody>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">KB size limit</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Unlimited (only top-k chunks injected)</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Must fit in context window (e.g. 200K tokens)</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Retrieval errors</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Yes — wrong chunks = wrong answer</td><td style="padding:7px 12px;border:1px solid #cbd5e0">None — LLM sees everything</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Pipeline complexity</td><td style="padding:7px 12px;border:1px solid #cbd5e0">High — embeddings, vector DB, RRF, re-ranker</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Low — load docs once, query directly</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Latency per query</td><td style="padding:7px 12px;border:1px solid #cbd5e0">+50–200ms retrieval overhead</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Near-zero after warmup (cache hit)</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">KB update cost</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Low — re-embed changed docs only</td><td style="padding:7px 12px;border:1px solid #cbd5e0">High — full cache invalidated, must reload all</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">Memory cost</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Low — vector DB on disk</td><td style="padding:7px 12px;border:1px solid #cbd5e0">High — full KB lives in GPU VRAM</td></tr>
+        <tr style="background:#edf2f7"><td style="padding:7px 12px;border:1px solid #cbd5e0">Multi-tenancy</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Easy — one vector DB, many users</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Hard — separate cache per user KB</td></tr>
+        <tr style="background:#fff"><td style="padding:7px 12px;border:1px solid #cbd5e0">LLM requirement</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Any LLM, any context size</td><td style="padding:7px 12px;border:1px solid #cbd5e0">Long-context LLM required (≥128K tokens)</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>When Each Wins</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Use RAG when:
+  ✅ KB is large (thousands of documents, millions of tokens)
+  ✅ KB updates frequently (new runbooks added daily)
+  ✅ You need multi-tenant isolation
+  ✅ You want to support any LLM (including small/local ones)
+  ✅ Cost per query matters (injecting 3 chunks << injecting 500 pages)
+
+Use CAG when:
+  ✅ KB is small and stable (fits in context window, rarely changes)
+  ✅ You need zero retrieval errors (medical, legal — missing one doc is unacceptable)
+  ✅ You can afford a long-context API (Gemini 1.5 Pro at 1M tokens)
+  ✅ Simplicity beats cost — no vector DB, no embeddings, no retrieval pipeline
+  ✅ Latency is critical and KB is static (cache warms once, serves forever)</pre>
+
+    <p><strong>This Project's Choice: RAG</strong></p>
+    <p>The AdTech KB has 20+ runbooks today and will grow. ChromaDB + MiniLM costs nothing to run locally and scales to thousands of documents without hitting a context window. CAG would work now (20 runbooks ≈ ~30K tokens, well within any long-context LLM), but would break the moment the KB grows beyond the context limit — and would require invalidating the full cache on every runbook update.</p>
+    <div class="faq-highlight">Practical rule: if your KB fits in a napkin and never changes → CAG. If your KB grows, updates, or spans multiple tenants → RAG. The two aren't mutually exclusive — some production systems use CAG for a small "always relevant" core and RAG for the long tail.</div>
+    </div></div>
+
+    <div class="faq-item" data-cat="rag"><div class="faq-q" onclick="toggleFAQ(this)"><span class="faq-qtext">How does Reciprocal Rank Fusion (RRF) merge two ranked lists without normalizing scores — step-by-step with worked example?</span><span class="faq-cat cat-rag">RAG</span><span class="faq-arrow">▼</span></div><div class="faq-a">
+    <p><strong>RRF merges ranked lists without needing to normalize scores</strong> — different retrieval systems produce scores on completely incompatible scales, so RRF ignores scores entirely and uses rank positions instead. Each doc's merged score = Σ 1/(k + rank_i) where k=60.</p>
+    <p><strong>The Problem RRF Solves</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Dense (ChromaDB cosine similarity):     Sparse (BM25 term frequency):
+  Doc_A  score: 0.91                      Doc_D  score: 28.5
+  Doc_B  score: 0.87                      Doc_E  score: 12.1
+  Doc_C  score: 0.72                      Doc_A  score:  8.3
+  Doc_D  score: 0.43                      Doc_B  score:  6.1
+  Doc_E  score: 0.38                      Doc_C  score:  2.2
+
+Can you add 0.43 + 28.5 to merge them?  NO.
+BM25's 28.5 would drown out everything from dense completely.
+
+RRF's insight: ignore the scores entirely, use only the rank positions.
+Rank 1, rank 2, rank 3 — always on the same scale regardless of which system produced them.</pre>
+    <p><strong>The Formula — Step by Step</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">merged_score(doc) = Σ  1 / (k + rank_i)
+
+Where:
+  rank_i = position of this doc in list i  (1 = first, 2 = second, ...)
+  k      = smoothing constant (default 60)
+  Σ      = sum across every list the doc appears in</pre>
+    <p><strong>Worked Example</strong> — Query: "deal D456 zero bids"</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Dense search results:             Sparse / BM25 results:
+  rank 1 → Doc_A  (PMP runbook)    rank 1 → Doc_D  ← "D456" exact match
+  rank 2 → Doc_B  (deal guide)     rank 2 → Doc_E  ← "seat" exact match
+  rank 3 → Doc_C  (zero bids)      rank 3 → Doc_A
+  rank 4 → Doc_D  ← our target     rank 4 → Doc_B
+  rank 5 → Doc_E                   rank 5 → Doc_C
+
+Apply score = 1/(60 + rank_dense) + 1/(60 + rank_sparse):
+
+Doc_A:  1/(60+1) + 1/(60+3) = 1/61  + 1/63  = 0.01639 + 0.01587 = 0.03226
+Doc_B:  1/(60+2) + 1/(60+4) = 1/62  + 1/64  = 0.01613 + 0.01563 = 0.03176
+Doc_C:  1/(60+3) + 1/(60+5) = 1/63  + 1/65  = 0.01587 + 0.01538 = 0.03125
+Doc_D:  1/(60+4) + 1/(60+1) = 1/64  + 1/61  = 0.01563 + 0.01639 = 0.03202  ← moves up
+Doc_E:  1/(60+5) + 1/(60+2) = 1/65  + 1/62  = 0.01538 + 0.01613 = 0.03151
+
+Sorted merged results:
+  Rank 1 → Doc_A  0.03226   (was #1 dense,  #3 sparse)
+  Rank 2 → Doc_D  0.03202   (was #4 dense,  #1 sparse) ← PROMOTED — exact D456 match
+  Rank 3 → Doc_B  0.03176   (was #2 dense,  #4 sparse)
+  Rank 4 → Doc_E  0.03151   (was #5 dense,  #2 sparse)
+  Rank 5 → Doc_C  0.03125   (was #3 dense,  #5 sparse)</pre>
+    <p>Doc_D was buried at rank 4 in dense-only search. BM25 found it at rank 1 (exact D456 match). RRF promotes it to rank 2. The LLM now receives the exact-match document it needs.</p>
+    <p><strong>What k=60 Does</strong></p>
+    <p>k is a smoothing constant that controls how steep the score drop-off is between ranks.</p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Without k (k=0):         With k=60 (default):
+  rank 1 → 1/1  = 1.000   rank 1 → 1/61 = 0.01639
+  rank 2 → 1/2  = 0.500   rank 2 → 1/62 = 0.01613  ← barely less than rank 1
+  rank 3 → 1/3  = 0.333   rank 3 → 1/63 = 0.01587
+  rank 10→ 1/10 = 0.100   rank 10→ 1/70 = 0.01429
+
+k=0:   rank 1 is 2× better than rank 2  → winner-takes-all, aggressive
+k=60:  rank 1 is barely better than rank 2  → gentle, balanced</pre>
+    <p>k=60 means: <em>"being first is good, but being second isn't a disaster."</em> The value 60 came from the original RRF paper (Cormack et al., 2009) — tested empirically across many retrieval benchmarks. It became the standard default.</p>
+    <p><strong>Why "Top Results Beat Either Signal Alone"</strong></p>
+    <pre style="background:#1a1a2e;border:1px solid #2d3748;border-radius:6px;padding:14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#e2e8f0">Dense-only top 3:   Doc_A, Doc_B, Doc_C     ← Doc_D (exact match) is missing
+Sparse-only top 3:  Doc_D, Doc_E, Doc_A     ← Doc_C (semantic match) may be missing
+RRF merged top 3:   Doc_A, Doc_D, Doc_B     ← contains BOTH the semantic AND exact match</pre>
+    <p>A document that ranks highly in both lists gets contributions from both sides — it dominates. A document that only ranks high in one list still gets promoted, but less so. Documents that don't appear in either list get a score of zero. The merged top-3 combines orthogonal signals rather than betting everything on one.</p>
+    <div class="faq-highlight">One-line intuition: RRF says "I don't care how confident each system is — I only care about the ORDER each system produced. If both systems agree a doc is near the top → it wins."</div>
     </div></div>
 
   </div><!-- /faq-section -->
